@@ -1,5 +1,7 @@
-if not (GetResourceState("ox_lib") == "started") then
+if GetResourceState("ox_lib") == "started" then
     return
 end
 
 lib = {}
+
+-- Need to implement zones modules when ox_lib is not present.
