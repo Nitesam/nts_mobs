@@ -138,6 +138,18 @@ AddEventHandler("nts_mobs:lostOwnership", function(indiceZona, netId)
     end
 end)
 
+RegisterNetEvent("nts_mobs:server:playerDamage", function(target, net_mob, damage)
+    local user_ped = GetPlayerPed(target)
+    if not user_ped or not DoesEntityExist(user_ped) then return end
+
+    local mob = NetworkGetEntityFromNetworkId(net_mob)
+    if not mob or not DoesEntityExist(mob) then return end
+
+    if #(GetEntityCoords(user_ped) - GetEntityCoords(mob)) <= 50.0 then
+        SetEntityHealth(user_ped, GetEntityHealth(user_ped) - damage)
+    end
+end)
+
 AddEventHandler("onResourceStop", function (resourceName)
     if GetCurrentResourceName() == resourceName then
         for k, v in pairs(ZONE_TAB) do

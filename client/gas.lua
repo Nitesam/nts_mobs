@@ -37,6 +37,10 @@ end
 
 
 Citizen.CreateThread(function()
+    if not Config.ToxicZone.Enable then
+        return
+    end
+
     for k,v in pairs(Config.ToxicZone.Zones) do
         gasZone[k] = {}
         gasZone[k].puntiGas = trovaZoneGas(k, v)

@@ -5,7 +5,7 @@ Config.Mob = {
     SelectType = "target", -- ox_target, target or control [ox_target is preferred, but you can use the integrated one putting just "target", control is using key controls and distance check]
     MobType = {
         ["zombie_a"] = {
-            ped = "a_m_m_skater_01",
+            ped = "G_M_M_Zombie_01",
             xp = { -- set to nil if not using ns_ab
                 ["forza"] = {min = 4, max = 10},
             },
@@ -16,7 +16,7 @@ Config.Mob = {
                 ["main"] = {
                     anim = { -- put anim nil for using default game attack
                         animDict = "melee@unarmed@streamed_variations",
-                        animClip = "",
+                        animClip = "plyr_takedown_front_backslap",
                     },
                     damage = 15,
                     timeBetween = 4 -- in seconds
@@ -24,10 +24,12 @@ Config.Mob = {
             },
             movClipset = "MOVE_M@DRUNK@VERYDRUNK",
             visualRange = 25, -- in meters
+            attackRange = 1.5, -- in meters
+            speed = 1.0,
             tryBeforeRemoving = 1, -- every try is equivalent to a range of seconds between 29 and 31 (if you expect to remove a dead mob that has not been looted after 5 minutes, set this to 10)
         },
         ["zombie_b"] = {
-            ped = "a_f_y_juggalo_01",
+            ped = "U_M_Y_Zombie_01",
             xp = nil,
             loot = {
                 ["rame"] = {min = 1, max = 3, prob = 25}
@@ -35,8 +37,30 @@ Config.Mob = {
             attackTypes = {
                 ["main"] = {
                     anim = { -- put anim nil for using default game attack
-                        animDict = "melee@unarmed@streamed_variations",
-                        animClip = "",
+                        animDict = "creatures@retriever@melee@streamed_core@",
+                        animClip = "attack",
+                    },
+                    damage = 4,
+                    timeBetween = 4 -- in seconds
+                }
+            },
+            movClipset = "MOVE_M@DRUNK@VERYDRUNK",
+            visualRange = 15, -- in meters
+            attackRange = 1.5, -- in meters
+            speed = 1.8,
+            tryBeforeRemoving = 1, -- every try is equivalent to a range of seconds between 29 and 31 (if you expect to remove a dead mob that has not been looted after 5 minutes, set this to 10)
+        },
+        ["zombie_c"] = {
+            ped = "G_M_M_Zombie_02",
+            xp = nil,
+            loot = {
+                ["rame"] = {min = 1, max = 3, prob = 25}
+            },
+            attackTypes = {
+                ["main"] = {
+                    anim = { -- put anim nil for using default game attack
+                        animDict = "creatures@retriever@melee@streamed_core@",
+                        animClip = "attack",
                     },
                     damage = 10,
                     timeBetween = 4 -- in seconds
@@ -44,6 +68,8 @@ Config.Mob = {
             },
             movClipset = "MOVE_M@DRUNK@VERYDRUNK",
             visualRange = 15, -- in meters
+            attackRange = 1.5, -- in meters
+            speed = 1.15,
             tryBeforeRemoving = 1, -- every try is equivalent to a range of seconds between 29 and 31 (if you expect to remove a dead mob that has not been looted after 5 minutes, set this to 10)
         },
     },
@@ -57,16 +83,15 @@ Config.Mob = {
                 scale = 1.0
             },
             pos = { -- all the positions that are using to create polygon
-                vec3(-967.69, -2368.78, 13.94),
-                vec3(-994.85, -2409.56, 13.94),
-                vec3(-1033.33, -2389.52, 13.94),
-                vec3(-1005.99, -2341.17, 13.94),
+                vector3(-614.81750488281, -492.20806884766, 33.76),
+                vector3(-653.82049560547, -481.6484375, 33.76),
+                vector3(-654.80548095703, -342.49392700195, 33.76),
+                vector3(-601.068359375, -350.92135620117, 34.115264892578),
             },
             mobs = { -- mobs that can spawn in this zone (give the right weight to each mob)
-                ["zombie_a"] = 90, -- higher the value, higher the chance to spawn
-                ["zombie_b"] = 80  -- i'd suggest to not go over 100
+                ["zombie_b"] = 100 -- higher the value, higher the chance to spawn
             },
-            mobMax = 40, -- maximum amount of mobs in zone
+            mobMax = 80, -- maximum amount of mobs in zone
             newSpawnTime = 15, -- in seconds
             debug = false
         }
@@ -74,6 +99,7 @@ Config.Mob = {
 }
 
 Config.ToxicZone = {
+    Enable = false,
     GlobalRendering = 24, -- in meters
     Zones = {
         ["ZoneA"] = {

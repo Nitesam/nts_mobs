@@ -73,8 +73,27 @@ AddEventHandler("nts_mobs:doThingMob", function(zona, netId, mobType)
             end
 
             if nearPlayerDistance <= mobType_C.visualRange then
+                SetPedMoveRateOverride(mob, mobType_C.speed)
+                local nearPlayerPed = GetPlayerPed(nearPlayer)
                 if not GetIsTaskActive(mob, 233) then
-                    TaskGotoEntityAiming(mob, GetPlayerPed(nearPlayer), 2.0, 25.0)
+                    if mobType_C.speed > 1.0 then
+                        ForcePedMotionState(mob, -530524, false, 0, 0)
+                    end
+
+                    TaskGotoEntityAiming(mob, nearPlayerPed, 2.0, 25.0)
+                end
+
+                if nearPlayerDistance <= mobType_C.attackRange and not IsPedDeadOrDying(nearPlayerPed, true) then
+                    
+                    TaskLookAtEntity(mob, nearPlayerPed, 250, 2048, 3)
+                    Wait(250)
+                    lib.playAnim(mob, mobType_C.attackTypes["main"].anim.animDict, mobType_C.attackTypes["main"].anim.animClip, 8.0, 8.0, 500, 0, 0.0, false, 0, false)
+
+                    if GetPlayerServerId(nearPlayer) == GetPlayerServerId(PlayerId()) then
+                        ApplyDamageToPed(nearPlayerPed, mobType_C.attackTypes["main"].damage, false)
+                    else
+                        TriggerServerEvent("nts_mobs:server:playerDamage", GetPlayerServerId(nearPlayer), NetworkGetNetworkIdFromEntity(mob), mobType_C.attackTypes["main"].damage)
+                    end
                 end
 
                 time = 1000
@@ -88,7 +107,7 @@ AddEventHandler("nts_mobs:doThingMob", function(zona, netId, mobType)
                     Debug(netId .. " wasn't doing anything, so i made him walking")
                 end
 
-                time = 5000
+                time = 2000
             end
 
             Citizen.Wait(time)
@@ -112,7 +131,7 @@ if Config.Debug then
     end, false)
 end
 
-if GetResourceState("esx") == "started" then
+if GetResourceState("es_extended") == "started" then
     RegisterNetEvent("esx:playerLoaded")
     AddEventHandler("esx:playerLoaded", function()
         initialize()
