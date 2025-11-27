@@ -84,9 +84,8 @@ RegisterNetEvent('esx:playerLoaded', function()
     initialize()
 end)
 
--- Check if already loaded on resource start
 Citizen.CreateThread(function()
-    Wait(500) -- Wait for framework detection
+    Wait(500)
     if not IsPlayerLoaded() then return end
     initialize()
 end)
