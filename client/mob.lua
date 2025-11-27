@@ -2,7 +2,7 @@
 local init, ready = false, false
 zoneMob = {}
 
-local function findThicknessBasedOnArea(points)
+local function findThicknessBasedOnArea(points, forcedMinHeight)
     if not next(points) then return 1.0 end
 
     local highestZ, lowestZ = -math.maxinteger, math.maxinteger
@@ -15,6 +15,7 @@ local function findThicknessBasedOnArea(points)
             lowestZ = points[i].z
         end
     end
+    if forcedMinHeight and highestZ < forcedMinHeight then highestZ = forcedMinHeight end
 
     return math.clamp((highestZ - lowestZ) + 1.0, 1.0, 1000.0) + 3.0
 end
@@ -26,11 +27,14 @@ local function initialize()
         for k, v in pairs(Config.Mob.Zone) do
             Debug("Initializing zone " .. k .. "...")
 
+            local minHeight = findThicknessBasedOnArea(v.pos, v.forcedMinHeight)
+            for i = 1, #v.pos do v.pos[i] = vec3(v.pos[i].x, v.pos[i].y, v.pos[i].z + (minHeight/2)) end
+
             zoneMob[k] = {}
             zoneMob[k].inside = false
             zoneMob[k].poly = lib.zones.poly({
                 points = v.pos,
-                thickness = findThicknessBasedOnArea(v.pos),
+                thickness = minHeight,
                 debug = v.debug,
                 inside = function() end,
                 onEnter = function(self)

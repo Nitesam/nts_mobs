@@ -84,17 +84,18 @@ Config.Mob = {
                 scale = 1.0
             },
             pos = { -- all the positions that are using to create polygon
-                vector3(-614.81750488281, -492.20806884766, 63.76),
-                vector3(-653.82049560547, -481.6484375, 33.76),
-                vector3(-654.80548095703, -342.49392700195, 33.76),
-                vector3(-601.068359375, -350.92135620117, 34.115264892578),
+                vector3(291.73077392578, 3443.4208984375, 35.67728805542),
+                vector3(984.38073730469, 3527.0632324219, 32.861618041992),
+                vector3(1118.4897460938, 3270.9006347656, 37.023284912109),
+                vector3(226.31533813477, 3154.4365234375, 41.226364135742),
             },
             mobs = { -- mobs that can spawn in this zone (give the right weight to each mob)
                 ["zombie_b"] = 100 -- higher the value, higher the chance to spawn
             },
+            forcedMinHeight = nil, -- 90.0, -- forced minimum for poly
             mobMax = 40, -- maximum amount of mobs in zone
             newSpawnTime = 15, -- in seconds
-            spawnBorderDistance = 5, -- distanza minima in metri dal bordo del poligono per spawn
+            spawnBorderDistance = 25, -- distanza minima in metri dal bordo del poligono per spawn
             debug = true
         }
     }
