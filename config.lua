@@ -31,7 +31,21 @@ Config.Mob = {
             --- Animation & Movement
             movClipset = "creatures@deer@move",         -- Movement animation clipset
             visualRange = 50,                           -- Detection range (meters)
-            attackRange = 1.5,                          -- Attack range (meters)
+
+            behaviour = "passive",                      -- Behaviour type (passive/aggressive/fugitive/neutral)
+
+            --- Combat Configuration
+            --  attackRange = 1.5,                      -- Attack range (meters)
+            --[[attackTypes = {                         -- if behaviour is in aggressive or passive, you can define attack types here if ped does not have default attacks
+                ["main"] = {
+                    anim = {                            -- Set to nil for default game attack
+                        animDict = "melee@unarmed@streamed_variations",
+                        animClip = "plyr_takedown_front_backslap"
+                    },
+                    damage = 15,                        -- Damage per hit
+                    timeBetween = 4                     -- Seconds between attacks
+                }
+            },]]
 
             --- Loot Table
             loot = {
@@ -42,17 +56,6 @@ Config.Mob = {
                 }
             },
 
-            --- Combat Configuration
-            attackTypes = {
-                ["main"] = {
-                    anim = {                            -- Set to nil for default game attack
-                        animDict = "melee@unarmed@streamed_variations",
-                        animClip = "plyr_takedown_front_backslap"
-                    },
-                    damage = 15,                        -- Damage per hit
-                    timeBetween = 4                     -- Seconds between attacks
-                }
-            },
             hasTrollMode = true,                        -- Shoots RPG if player raises hands
 
             --- Death & Cleanup
@@ -68,14 +71,6 @@ Config.Mob = {
             --- Display & Identification
             name = "Zone A",                            -- Zone display name
             debug = true,                               -- Debug mode for this zone
-
-            --- Blip Configuration
-            blip = {
-                sprite = 50,                            -- Blip sprite ID
-                color = 3,                              -- Blip color
-                display = 4,                            -- Display mode
-                scale = 1.0                             -- Blip scale
-            },
 
             --- Zone Boundaries (Polygon Points)
             pos = {

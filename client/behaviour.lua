@@ -51,8 +51,11 @@ local function ensureMovementClipset(mob, mobConfig, netId)
     local expectedClipset = GetHashKey(mobConfig.movClipset)
     if GetPedMovementClipset(mob) ~= expectedClipset then
         SetPedMovementClipset(mob, mobConfig.movClipset, 1.0)
-        --Debug("Mov clipset changed to " .. mobConfig.movClipset .. " for " .. netId)
     end
+end
+
+local function baseGTAAttack(mob, targetPed)
+    TaskMeleeAttackPed(mob, targetPed, 0, 1)
 end
 
 --- Performs attack on target player
@@ -63,6 +66,9 @@ end
 ---@param netId number Network ID
 local function performAttack(mob, targetPed, targetPlayer, mobConfig, netId)
     local attack = mobConfig.attackTypes["main"]
+    if not attack then
+        return baseGTAAttack(mob, targetPed)
+    end
 
     TaskLookAtEntity(mob, targetPed, 250, 2048, 3)
     Wait(250)
@@ -109,6 +115,19 @@ local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig,
     return false
 end
 
+local function handleEscapeFromPlayer(mob, nearPlayer, nearPlayerDistance, mobConfig, netId)
+    SetPedMoveRateOverride(mob, mobConfig.speed)
+    local nearPlayerPed = GetPlayerPed(nearPlayer)
+
+    if not GetIsTaskActive(mob, TASK_AIM_GUN_ON_FOOT) then
+        if mobConfig.speed > 1.0 then
+            ForcePedMotionState(mob, MOTION_STATE_RUNNING, false, 0, 0)
+        end
+        TaskSmartFleePed(mob, nearPlayerPed, 100.0, -1, false, false)
+        DebugPedTask(mob)
+    end
+end
+
 --- Checks if mob is idle and needs a new wandering task
 ---@param mob number Entity handle
 ---@return boolean isIdle
@@ -149,14 +168,19 @@ end
 ---@param mobConfig table Mob type configuration
 ---@param netId number Network ID
 local function runMobControlLoop(mob, zone, mobConfig, netId)
+    local tickDelay = 2000
     while NetworkGetEntityOwner(mob) == cache.playerId do
         local nearPlayer, nearPlayerDistance = getClosestPlayerToMob(mob)
-        local tickDelay = 5000
 
         ensureMovementClipset(mob, mobConfig, netId)
 
         if nearPlayerDistance <= mobConfig.visualRange then
-            handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig, netId)
+            if mobConfig.behaviour == "aggressive" then
+                handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig, netId)
+            elseif mobConfig.behaviour == "fugitive" then
+                handleEscapeFromPlayer(mob, nearPlayer, nearPlayerDistance, mobConfig, netId)
+            end
+
             tickDelay = 1000
         else
             handleIdleBehavior(mob, zone, netId)

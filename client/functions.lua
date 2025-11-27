@@ -53,6 +53,8 @@ function GetRandomPoints(index, points, count)
             if hit and Config.Mob.Zone[index].whitelistedSoilTypes[material] then
                 generatedPoints[#generatedPoints + 1] = point
                 generated = generated + 1
+            else
+                i -= 1 -- Retry this iteration (little bit scary, i'd like to add a maxAttempts!)
             end
         else
             generatedPoints[#generatedPoints + 1] = point

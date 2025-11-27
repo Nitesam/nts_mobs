@@ -20,6 +20,21 @@ local function findThicknessBasedOnArea(points, forcedMinHeight)
     return math.clamp((highestZ - lowestZ) + 1.0, 1.0, 1000.0) + 3.0
 end
 
+local function makeBlipForZone(index, zoneConfig)
+    if not zoneConfig.blip then return end
+
+    local blip = AddBlipForCoord(zoneConfig.pos[1].x, zoneConfig.pos[1].y, zoneConfig.pos[1].z)
+    SetBlipSprite(blip, 1)
+    SetBlipDisplay(blip, 4)
+    SetBlipScale(blip, 1.0)
+    SetBlipColour(blip, 1)
+    SetBlipAsShortRange(blip, true)
+    BeginTextCommandSetBlipName("STRING")
+    AddTextComponentString(zoneConfig.name or ("Mob Zone " .. tostring(index)))
+    EndTextCommandSetBlipName(blip)
+    return blip
+end
+
 local function initialize()
     if not init then
         init = true
@@ -48,6 +63,10 @@ local function initialize()
                     Debug("Exited zone " .. k)
                 end
             })
+
+            if v.debug then
+                zoneMob[k].blip = makeBlipForZone(k, v)
+            end
         end
 
         for k, v in pairs(Config.Mob.MobType) do
@@ -92,4 +111,16 @@ Citizen.CreateThread(function()
     Wait(500)
     if not IsPlayerLoaded() then return end
     initialize()
+end)
+
+AddEventHandler('onResourceStop', function(resourceName)
+    if GetCurrentResourceName() ~= resourceName then return end
+    for k, v in pairs(zoneMob) do
+        if v.poly then
+            v.poly:remove()
+        end
+        if v.blip then
+            RemoveBlip(v.blip)
+        end
+    end
 end)
