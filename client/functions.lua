@@ -1,3 +1,62 @@
+local zoneTrianglesCache = {}
+
+local function getZoneTriangles(index, points)
+    if not zoneTrianglesCache[index] then
+        local centroid = getCentroid(points)
+        local triangles = precomputePolygonTriangles(points, centroid)
+        local borderDistance = Config.Mob.Zone[index].spawnBorderDistance or 10
+
+        zoneTrianglesCache[index] = {
+            triangles = triangles,
+            borderDistance = borderDistance,
+            points = points
+        }
+        Debug("Precomputed " .. #triangles .. " triangles for zone " .. index)
+    end
+
+    return zoneTrianglesCache[index].triangles, 
+           zoneTrianglesCache[index].borderDistance,
+           zoneTrianglesCache[index].points
+end
+
+function GetRandomPoints(index, points, count)
+    local triangles, borderDistance, polygonPoints = getZoneTriangles(index, points)
+    local generatedPoints = {}
+    local maxAttempts = 20
+    local generated = 0
+
+    for i = 1, count do
+        local point
+        local attempts = 0
+
+        while attempts < maxAttempts do
+            attempts = attempts + 1
+            point = getRandomPointInPolygon(triangles)
+
+            if not isPointNearPolygonBorder(point.x, point.y, polygonPoints, borderDistance) then
+                break
+            end
+        end
+
+        if attempts >= maxAttempts then
+            Debug("Warning: Could not find point far from border after " .. maxAttempts .. " attempts for zone " .. index)
+        end
+
+        local retval, groundZ = GetGroundZFor_3dCoord(point.x, point.y, point.z + 50.0, true)
+        if retval then 
+            point = vec3(point.x, point.y, groundZ + 0.5)
+        end
+
+        generated = generated + 1
+        generatedPoints[generated] = point
+
+        if i % 10 == 0 then Wait(0) end
+    end
+
+    Debug(generated, "points added for zone", index)
+    return generatedPoints
+end
+
 function GetPlayers(onlyOtherPlayers, returnKeyValue, returnPeds)
     local players, myPlayer = {}, PlayerId()
 
@@ -22,7 +81,7 @@ function getClosestPlayerToMob(mob)
 
     for player, ped in pairs(GetPlayers(false, true, true)) do
         local distance = #(pos - GetEntityCoords(ped))
-        
+
         if closestDistance == -1 or closestDistance > distance then
             closestPlayer = player
             closestDistance = distance
@@ -30,49 +89,6 @@ function getClosestPlayerToMob(mob)
     end
 
     return closestPlayer, closestDistance
-end
-
----Targeting System
----@param distance number
-function Target(distance)
-    while true do
-        local casterCoords = GetEntityCoords(cache.ped)
-        local hit, endCoords, entityHit = RayCastGamePlayCamera(50.0)
-
-        if hit and IsEntityAPed(entityHit) and not IsEntityDead(entityHit) and entityHit ~= cache.ped then
-            local entityCoord = GetEntityCoords(entityHit)
-
-            if #(casterCoords - entityCoord) < distance then
-                DrawMarker(
-                    3, entityCoord.x, entityCoord.y, entityCoord.z + 1.2,
-                    0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 0.5, 0.8, 0.5, 0, 255, 0, 100,
-                    false, true, 2, false, nil, nil, false
-                )
-
-                if IsControlJustReleased(0, 38) then
-                    return entityHit
-                end
-            else
-                DrawMarker(
-                    3, entityCoord.x, entityCoord.y, entityCoord.z + 1.2,
-                    0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 0.5, 0.8, 0.5, 255, 0, 0, 100,
-                    false, true, 2, false, nil, nil, false
-                )
-            end
-        elseif endCoords then
-            DrawMarker(
-                28, endCoords.x, endCoords.y, endCoords.z,
-                0.0, 0.0, 0.0, 0.0, 180.0, 0.0, 0.1, 0.1, 0.1, 255, 0, 0, 100,
-                false, true, 2, false, nil, nil, false
-            )
-        end
-
-        if IsControlJustPressed(0, 38) and not entityHit or IsControlJustPressed(0, 177) then
-            return
-        end
-
-        Wait(0)
-    end
 end
 
 function RotationToDirection(rotation)

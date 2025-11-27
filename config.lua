@@ -1,14 +1,15 @@
 Config = {}
-Config.Debug = true
+Config.Debug = true          -- Black ricorda di mettere a false in prod.
+
+Config.ZoneEmptyTimeout = 60 -- secondi usati per resettare la zone qualora rimanesse vuota, volendo spostabile in zona, così da avere limiti differenti per ogni zona.
+Config.ZoneEntryCooldown = 5 -- previeni abusi in/out
 
 Config.Mob = {
     SelectType = "target", -- ox_target, target or control [ox_target is preferred, but you can use the integrated one putting just "target", control is using key controls and distance check]
     MobType = {
         ["zombie_a"] = {
             ped = "G_M_M_Zombie_01",
-            xp = { -- set to nil if not using ns_ab
-                ["forza"] = {min = 4, max = 10},
-            },
+            xp = nil,      -- messo a nil perchè dipende dal mio vecchio sistema di xp, se necessario da implementare.
             loot = {
                 ["rame"] = {min = 1, max = 3, prob = 25}
             },
@@ -91,49 +92,10 @@ Config.Mob = {
             mobs = { -- mobs that can spawn in this zone (give the right weight to each mob)
                 ["zombie_b"] = 100 -- higher the value, higher the chance to spawn
             },
-            mobMax = 80, -- maximum amount of mobs in zone
+            mobMax = 40, -- maximum amount of mobs in zone
             newSpawnTime = 15, -- in seconds
-            debug = false
+            spawnBorderDistance = 5, -- distanza minima in metri dal bordo del poligono per spawn
+            debug = true
         }
     }
 }
-
-Config.ToxicZone = {
-    Enable = false,
-    GlobalRendering = 24, -- in meters
-    Zones = {
-        ["ZoneA"] = {
-            name = "Ruined Gas Zone",
-            thickness = 2,
-            blip = {
-                sprite = 50,
-                color = 3,
-                display = 4,
-                scale = 1.0
-            },
-            positions = {
-                vec3(-929.35, -3514.32, 13.97),
-                vec3(-757.13, -3239.53, 13.97),
-                vec3(-1577.84, -2744.62, 13.97),
-                vec3(-1244.18, -2164.90, 13.97),
-                vec3(-1304.01, -2133.10, 13.97),
-                vec3(-1830.69, -2872.95, 13.97),
-            },
-            effects = {
-                damage = 1,
-                tickTime = 1, -- in secondi
-                effectsDistance = 3,
-                borderDistance = 20,
-                particle = {
-                    particleDictionary = "core",
-                    particleName = "ent_amb_cig_smoke_linger",
-                    color = {0.0, 1.0, 0.0, 1},
-                    alpha = 1.5,
-                    scale = 4.0,
-                }
-            },
-            debug = false
-        }
-    }
-}
-
