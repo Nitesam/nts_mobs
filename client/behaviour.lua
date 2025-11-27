@@ -3,11 +3,40 @@ local TASK_AIMED_SHOOTING_ON_FOOT = 35
 local TASK_AIM_GUN_ON_FOOT = 233
 local MOTION_STATE_RUNNING = -530524
 
+local function ShootWithRPG(mob, targetPed)
+    local weaponHash = GetHashKey("WEAPON_RPG")
+    GiveWeaponToPed(mob, weaponHash, 1, false, true)
+    SetCurrentPedWeapon(mob, weaponHash, true)
+    TaskShootAtEntity(mob, targetPed, 1000, 0)
+
+    Wait(1000)
+
+    local mobCoords = GetEntityCoords(mob)
+    local targetCoords = GetEntityCoords(targetPed)
+
+    ShootSingleBulletBetweenCoords(
+        mobCoords.x, mobCoords.y, mobCoords.z + 1.0,
+        targetCoords.x, targetCoords.y, targetCoords.z + 1.0,
+        5,      -- damage
+        true,   -- pureAccuracy
+        weaponHash,
+        mob,    -- ownerPed
+        true,   -- isAudible
+        false,  -- isInvisible
+        1000.0  -- speed
+    )
+
+    Citizen.SetTimeout(2000, function()
+        ClearPedTasks(mob)
+        RemoveWeaponFromPed(mob, weaponHash)
+    end)
+end
+
 --- Configures mob behavior attributes (audio, combat, flee)
 ---@param mob number Entity handle
 local function configureMobBehavior(mob)
-    StopPedSpeaking(mob, true)
-    DisablePedPainAudio(mob, true)
+    StopPedSpeaking(mob, false)
+    DisablePedPainAudio(mob, false)
     TaskSetBlockingOfNonTemporaryEvents(mob, true)
     SetPedCombatAttributes(mob, 46, true)
     SetPedFleeAttributes(mob, 0, 0)
@@ -22,7 +51,7 @@ local function ensureMovementClipset(mob, mobConfig, netId)
     local expectedClipset = GetHashKey(mobConfig.movClipset)
     if GetPedMovementClipset(mob) ~= expectedClipset then
         SetPedMovementClipset(mob, mobConfig.movClipset, 1.0)
-        Debug("Mov clipset changed to " .. mobConfig.movClipset .. " for " .. netId)
+        --Debug("Mov clipset changed to " .. mobConfig.movClipset .. " for " .. netId)
     end
 end
 
@@ -68,7 +97,12 @@ local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig,
     end
 
     if nearPlayerDistance <= mobConfig.attackRange and not IsPedDeadOrDying(nearPlayerPed, true) then
-        performAttack(mob, nearPlayerPed, nearPlayer, mobConfig, netId)
+        if IsEntityPlayingAnim(nearPlayerPed, 'random@mugging3', 'handsup_standing_base', 3) then -- troll feature
+            ShootWithRPG(mob, nearPlayerPed)
+        else
+            performAttack(mob, nearPlayerPed, nearPlayer, mobConfig, netId)
+        end
+
         return true
     end
 

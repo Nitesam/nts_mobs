@@ -47,8 +47,17 @@ function GetRandomPoints(index, points, count)
             point = vec3(point.x, point.y, groundZ + 0.5)
         end
 
-        generated = generated + 1
-        generatedPoints[generated] = point
+        if Config.Mob.Zone[index].whitelistedSoilTypes and next(Config.Mob.Zone[index].whitelistedSoilTypes) then
+            local hit, _, __, surfaceNormal, material = lib.raycast.fromCoords(vec3(point.x, point.y, point.z + 30.0), vec3(point.x, point.y, point.z - 1.0), 1, 7)
+
+            if hit and Config.Mob.Zone[index].whitelistedSoilTypes[material] then
+                generatedPoints[#generatedPoints + 1] = point
+                generated = generated + 1
+            end
+        else
+            generatedPoints[#generatedPoints + 1] = point
+            generated = generated + 1
+        end
 
         if i % 10 == 0 then Wait(0) end
     end
