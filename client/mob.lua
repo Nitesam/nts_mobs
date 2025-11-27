@@ -28,7 +28,7 @@ local function initialize()
             Debug("Initializing zone " .. k .. "...")
 
             local minHeight = findThicknessBasedOnArea(v.pos, v.forcedMinHeight)
-            for i = 1, #v.pos do v.pos[i] = vec3(v.pos[i].x, v.pos[i].y, v.pos[i].z + (minHeight/2)) end
+            --for i = 1, #v.pos do v.pos[i] = vec3(v.pos[i].x, v.pos[i].y, v.pos[i].z + (minHeight/2)) end
 
             zoneMob[k] = {}
             zoneMob[k].inside = false

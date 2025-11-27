@@ -1,61 +1,105 @@
+---============================================================================
+--- NTS MOBS CONFIGURATION
+---============================================================================
+
 Config = {}
-Config.Debug = true                    -- Black ricorda di mettere a false in prod.
 
-Config.ZoneEmptyTimeout = 60           -- secondi usati per resettare la zone qualora rimanesse vuota, volendo spostabile in zona, così da avere limiti differenti per ogni zona.
-Config.ZoneEntryCooldown = 5           -- previeni abusi in/out
+---============================================================================
+--- GENERAL SETTINGS
+---============================================================================
+Config.Debug = false                                    -- Enable debug mode (disable in production)
+Config.ZoneEmptyTimeout = 60                            -- Seconds to reset zone if empty (per-zone override available)
+Config.ZoneEntryCooldown = 5                            -- Prevent in/out abuse (cooldown in seconds)
 
+---============================================================================
+--- MOB SYSTEM CONFIGURATION
+---============================================================================
 Config.Mob = {
-    SelectType = "target",             -- ox_target, target or control [ox_target is preferred, but you can use the integrated one putting just "target", control is using key controls and distance check]
+    --- Selection Method: "target" (ox_target), "control" (key-based), or "integrated"
+    SelectType = "target",
+
+    ---========================================================================
+    --- MOB TYPE DEFINITIONS
+    ---========================================================================
     MobType = {
         ["deer"] = {
-            ped = "a_c_deer",
-            xp = nil,                  -- messo a nil perchè dipende dal mio vecchio sistema di xp, se necessario da implementare.
+            --- Model & Base Stats
+            ped = "a_c_deer",                           -- GTA model hash/name
+            xp = nil,                                   -- XP reward (nil = disabled for now)
+            speed = 3.0,                                -- Movement speed multiplier
+
+            --- Animation & Movement
+            movClipset = "creatures@deer@move",         -- Movement animation clipset
+            visualRange = 50,                           -- Detection range (meters)
+            attackRange = 1.5,                          -- Attack range (meters)
+
+            --- Loot Table
             loot = {
-                ["elk_fur"] = {min = 1, max = 3, prob = 25}
-            },
-            attackTypes = {
-                ["main"] = {
-                    anim = {            -- put anim nil for using default game attack
-                        animDict = "melee@unarmed@streamed_variations",
-                        animClip = "plyr_takedown_front_backslap",
-                    },
-                    damage = 15,
-                    timeBetween = 4    -- in seconds
+                ["elk_fur"] = {
+                    min = 1,                            -- Minimum quantity
+                    max = 3,                            -- Maximum quantity
+                    prob = 25                           -- Drop probability (0-100)
                 }
             },
-            movClipset = "creatures@deer@move",
-            visualRange = 50,          -- in meters
-            attackRange = 1.5,         -- in meters
-            speed = 1.0,
-            tryBeforeRemoving = 1,     -- every try is equivalent to a range of seconds between 29 and 31 (if you expect to remove a dead mob that has not been looted after 5 minutes, set this to 10)
+
+            --- Combat Configuration
+            attackTypes = {
+                ["main"] = {
+                    anim = {                            -- Set to nil for default game attack
+                        animDict = "melee@unarmed@streamed_variations",
+                        animClip = "plyr_takedown_front_backslap"
+                    },
+                    damage = 15,                        -- Damage per hit
+                    timeBetween = 4                     -- Seconds between attacks
+                }
+            },
+            hasTrollMode = true,                        -- Shoots RPG if player raises hands
+
+            --- Death & Cleanup
+            tryBeforeRemoving = 1                       -- Attempts before corpse removal (≈30 sec per try)
         }
     },
+
+    ---========================================================================
+    --- ZONE DEFINITIONS
+    ---========================================================================
     Zone = {
         ["zone_a"] = {
-            name = "Zone A",
+            --- Display & Identification
+            name = "Zone A",                            -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Blip Configuration
             blip = {
-                sprite = 50,
-                color = 3,
-                display = 4,
-                scale = 1.0
+                sprite = 50,                            -- Blip sprite ID
+                color = 3,                              -- Blip color
+                display = 4,                            -- Display mode
+                scale = 1.0                             -- Blip scale
             },
-            pos = {                    -- all the positions that are using to create polygon
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
                 vector3(291.73077392578, 3443.4208984375, 35.67728805542),
                 vector3(984.38073730469, 3527.0632324219, 32.861618041992),
                 vector3(1118.4897460938, 3270.9006347656, 37.023284912109),
-                vector3(226.31533813477, 3154.4365234375, 41.226364135742),
+                vector3(226.31533813477, 3154.4365234375, 41.226364135742)
             },
-            whitelistedSoilTypes = {   -- soil types where mobs can spawn
-                [-24584353] = true,
+
+            --- Spawning Configuration
+            mobMax = 120,                               -- Maximum mobs in zone
+            newSpawnTime = 15,                          -- Spawn interval (seconds)
+            spawnBorderDistance = 25,                   -- Min distance from polygon edge (meters)
+            forcedMinHeight = nil,                      -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                ["deer"] = 100                          -- Higher = higher spawn chance
             },
-            mobs = {                   -- mobs that can spawn in this zone (give the right weight to each mob)
-                ["deer"] = 100         -- higher the value, higher the chance to spawn
-            },
-            forcedMinHeight = nil,     -- 90.0, -- forced minimum for poly
-            mobMax = 40,               -- maximum amount of mobs in zone
-            newSpawnTime = 15,         -- in seconds
-            spawnBorderDistance = 25,  -- distanza minima in metri dal bordo del poligono per spawn
-            debug = true
+
+            --- Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {
+                [-1595148316] = true                    -- Allowed soil type hashes
+            }
         }
     }
 }
