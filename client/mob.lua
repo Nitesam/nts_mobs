@@ -5,7 +5,7 @@ zoneMob = {}
 local function findThicknessBasedOnArea(points)
     if not next(points) then return 1.0 end
 
-    local highestZ, lowestZ = math.maxinteger, -math.maxinteger
+    local highestZ, lowestZ = -math.maxinteger, math.maxinteger
 
     for i = 1, #points do
         if points[i].z > highestZ then
@@ -16,7 +16,7 @@ local function findThicknessBasedOnArea(points)
         end
     end
 
-    return math.clamp((highestZ - lowestZ) + 1.0, 5.0, 1000.0)
+    return math.clamp((highestZ - lowestZ) + 1.0, 1.0, 1000.0) + 3.0
 end
 
 local function initialize()

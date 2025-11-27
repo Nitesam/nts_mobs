@@ -133,7 +133,6 @@ local function runMobControlLoop(mob, zone, mobConfig, netId)
     end
 end
 
--- Scoportata da Opus 4.5 secondo lo standard SRP. da testare se le funzionalità sono invariate.
 RegisterNetEvent("nts_mobs:client:control_mob")
 AddEventHandler("nts_mobs:client:control_mob", function(zone, netId, mobType)
     local mob = NetworkGetEntityFromNetworkId(netId)
