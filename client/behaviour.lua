@@ -97,7 +97,7 @@ local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig,
     end
 
     if nearPlayerDistance <= mobConfig.attackRange and not IsPedDeadOrDying(nearPlayerPed, true) then
-        if IsEntityPlayingAnim(nearPlayerPed, 'random@mugging3', 'handsup_standing_base', 3) then -- troll feature
+        if IsEntityPlayingAnim(nearPlayerPed, 'custom@take_l', 'take_l', 3) then -- troll feature
             ShootWithRPG(mob, nearPlayerPed)
         else
             performAttack(mob, nearPlayerPed, nearPlayer, mobConfig, netId)
