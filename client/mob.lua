@@ -80,7 +80,9 @@ end
 
 lib.callback.register("nts_mobs:client:request_random_points", function(zone, count)
     while not ready do Wait(10) end
-    return GetRandomPoints(zone, Config.Mob.Zone[zone].pos, count)
+    local points = GetRandomPoints(zone, Config.Mob.Zone[zone].pos, count)
+    if Config.Debug then ThreadMarkingPoints(points) end
+    return points
 end)
 
 if Config.Debug then

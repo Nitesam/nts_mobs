@@ -158,13 +158,11 @@ local function startZoneThread(index)
                 if DoesEntityExist(v.ped) then
                     local owner = NetworkGetEntityOwner(v.ped)
 
-                    if owner ~= v.owner and not v.transferring then
+                    if owner ~= v.owner then
                         Debug("Mob " .. k .. " Owner Changed from " .. v.owner .. " to " .. owner .. ".")
 
-                        ZONE_TAB[index].mob[k].transferring = true
                         ZONE_TAB[index].mob[k].owner = owner
                         TriggerClientEvent("nts_mobs:client:control_mob", owner, index, k, v.type)
-                        ZONE_TAB[index].mob[k].transferring = false
                     end
 
                     if owner ~= -1 and GetEntityHealth(v.ped) <= 0 then
@@ -207,7 +205,7 @@ local function initZone(index, requestingPlayer)
         for i = 1, Config.Mob.Zone[index].mobMax - ZONE_TAB[index].active do
             if not ZONE_TAB[index].running then break end
             extractMob(index)
-            Wait(2)
+            Wait(1)
         end
     end
 
@@ -284,12 +282,10 @@ end)
 RegisterServerEvent("nts_mobs:lostOwnership")
 AddEventHandler("nts_mobs:lostOwnership", function(zoneIndex, netId)
     local mob = ZONE_TAB[zoneIndex] and ZONE_TAB[zoneIndex].mob[netId]
-    if mob and not mob.transferring then
-        mob.transferring = true
+    if mob then
         mob.owner = NetworkGetEntityOwner(mob.ped)
         TriggerClientEvent("nts_mobs:client:control_mob", mob.owner, zoneIndex, netId, mob.type)
         Debug(source .. " told me that he lost the ownership, so i sent the mob task to the new owner [".. mob.owner .."]")
-        mob.transferring = false
     end
 end)
 

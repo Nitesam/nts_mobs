@@ -151,67 +151,27 @@ end
 ---@param targetPed number
 ---@param mobData table
 ---@param netId number
-local function initRPGAttack(mob, targetPed, mobData, netId)
-    local weaponHash = GetHashKey("WEAPON_RPG")
-    GiveWeaponToPed(mob, weaponHash, 1, false, true)
-    SetCurrentPedWeapon(mob, weaponHash, true)
-    TaskShootAtEntity(mob, targetPed, 1000, 0)
-
-    local currentTime = GetGameTimer()
-    mobData.pendingRPGShot = {
-        targetPed = targetPed,
-        weaponHash = weaponHash,
-        fireTime = currentTime + 1000,
-        cleanupTime = currentTime + 3000,
-        fired = false
-    }
-    
-    local oldState = mobData.state
-    mobData.state = MOB_STATE.ATTACKING
-    mobData.attackCooldown = currentTime + 3000
-    
-    DebugMob(netId, "Initiating RPG attack!")
-    DebugStateChange(netId, oldState, mobData.state)
-end
-
---- Processa lo sparo RPG pendente
----@param mob number
----@param mobData table
----@param netId number
-local function processRPGShot(mob, mobData, netId)
-    if not mobData.pendingRPGShot then return end
-    
-    local currentTime = GetGameTimer()
-    local rpgData = mobData.pendingRPGShot
-    
-    -- Spara il colpo
-    if not rpgData.fired and currentTime >= rpgData.fireTime then
-        if DoesEntityExist(rpgData.targetPed) then
-            local mobCoords = GetEntityCoords(mob)
-            local targetCoords = GetEntityCoords(rpgData.targetPed)
-
-            ShootSingleBulletBetweenCoords(
-                mobCoords.x, mobCoords.y, mobCoords.z + 1.0,
-                targetCoords.x, targetCoords.y, targetCoords.z + 1.0,
-                5, true, rpgData.weaponHash, mob, true, false, 1000.0
-            )
-            DebugMob(netId, "RPG fired!")
-        else
-            DebugMob(netId, "RPG target no longer exists, cancelling shot")
-        end
-        rpgData.fired = true
+local function ShootLaser(mob, targetPed, mobData, netId)
+    if not DoesEntityExist(mob) or not DoesEntityExist(targetPed) then
+        return
     end
-    
-    -- Cleanup
-    if currentTime >= rpgData.cleanupTime then
-        ClearPedTasks(mob)
-        RemoveWeaponFromPed(mob, rpgData.weaponHash)
-        mobData.pendingRPGShot = nil
-        local oldState = mobData.state
-        mobData.state = MOB_STATE.IDLE
-        DebugMob(netId, "RPG attack cleanup complete")
-        DebugStateChange(netId, oldState, mobData.state)
-    end
+
+    local startCoords = GetPedBoneCoords(mob, 31086, 0.0, 0.0, 0.0) 
+    local targetCoords = GetPedBoneCoords(targetPed, 24818, 0.0, 0.0, 0.0)
+
+    ShootSingleBulletBetweenCoords(
+        startCoords.x, startCoords.y, startCoords.z, -- Start X, Y, Z
+        targetCoords.x, targetCoords.y, targetCoords.z, -- End X, Y, Z
+        5,
+        true,
+        GetHashKey("WEAPON_RAILGUN"),
+        mob,
+        true,
+        false,
+        1000
+    )
+
+    DebugMob(netId, "Shoot Laser! Target: " .. tostring(targetPed))
 end
 
 --- Inizia l'attacco melee (non bloccante)
@@ -241,11 +201,11 @@ local function initMeleeAttack(mob, targetPed, targetPlayer, mobConfig, netId, m
         executeTime = currentTime + 250,
         executed = false
     }
-    
+
     local oldState = mobData.state
     mobData.state = MOB_STATE.ATTACKING
     mobData.attackCooldown = currentTime + 750
-    
+
     DebugMob(netId, "Initiating melee attack, damage:", attack.damage)
     DebugStateChange(netId, oldState, mobData.state)
 end
@@ -300,15 +260,13 @@ end
 ---@param mobData table
 local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig, netId, mobData)
     local nearPlayerPed = GetPlayerPed(nearPlayer)
-    
-    -- Pulisci i task solo quando si entra nello stato CHASING per la prima volta
+
     if mobData.state ~= MOB_STATE.CHASING then
         clearMobTasks(mob, netId)
     end
-    
+
     SetPedMoveRateOverride(mob, mobConfig.speed)
 
-    -- Riassegna il task solo se non è già attivo
     if not GetIsTaskActive(mob, TASK_AIM_GUN_ON_FOOT) then
         if mobConfig.speed > 1.0 then
             ForcePedMotionState(mob, MOTION_STATE_RUNNING, false, 0, 0)
@@ -320,20 +278,14 @@ local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig,
     local currentTime = GetGameTimer()
     local canAttack = currentTime >= (mobData.attackCooldown or 0)
 
-    if nearPlayerDistance <= mobConfig.attackRange and 
+    if nearPlayerDistance <= mobConfig.attackRange and
        not IsPedDeadOrDying(nearPlayerPed, true) and canAttack then
-
-        if mobConfig.hasTrollMode and IsEntityPlayingAnim(nearPlayerPed, 'custom@take_l', 'take_l', 3) then
-            DebugMob(netId, "Troll mode activated! Switching to RPG")
-            initRPGAttack(mob, nearPlayerPed, mobData, netId)
-        else
-            initMeleeAttack(mob, nearPlayerPed, nearPlayer, mobConfig, netId, mobData)
-        end
+        initMeleeAttack(mob, nearPlayerPed, nearPlayer, mobConfig, netId, mobData)
     elseif nearPlayerDistance <= mobConfig.attackRange and not canAttack then
         local remainingCooldown = (mobData.attackCooldown or 0) - currentTime
         DebugMob(netId, "In attack range but on cooldown:", string.format("%.0fms", remainingCooldown))
     end
-    
+
     local oldState = mobData.state
     mobData.state = MOB_STATE.CHASING
     DebugStateChange(netId, oldState, mobData.state)
@@ -347,18 +299,18 @@ end
 ---@param netId number
 local function handleEscapeFromPlayer(mob, nearPlayer, mobConfig, mobData, netId)
     local nearPlayerPed = GetPlayerPed(nearPlayer)
-    
-    -- Pulisci i task solo quando si entra nello stato FLEEING per la prima volta
+
     if mobData.state ~= MOB_STATE.FLEEING then
         clearMobTasks(mob, netId)
     end
-    
+
     SetPedMoveRateOverride(mob, mobConfig.speed)
-    
+
     if not GetIsTaskActive(mob, TASK_SMART_FLEE) then
         if mobConfig.speed > 1.0 then
             ForcePedMotionState(mob, MOTION_STATE_RUNNING, false, 0, 0)
         end
+
         TaskSmartFleePed(mob, nearPlayerPed, 100.0, -1, false, false)
         DebugMob(netId, "Fleeing from player!")
     end
@@ -374,13 +326,10 @@ end
 ---@param mobData table
 ---@param netId number
 local function handleWanderingBehavior(mob, zone, mobData, netId)
-    -- Verifica se il mob sta ancora wanderando
     if isMobWandering(mob) then
-        -- Tutto ok, continua a wanderare
         return
     end
-    
-    -- Il mob ha smesso di wanderare, torna in IDLE
+
     local oldState = mobData.state
     mobData.state = MOB_STATE.IDLE
     DebugMob(netId, "Wandering task finished, returning to IDLE")
@@ -393,13 +342,11 @@ end
 ---@param mobData table
 ---@param netId number
 local function handleIdleBehavior(mob, zone, mobData, netId)
-    -- Se stiamo arrivando da un altro stato (non IDLE e non WANDERING), pulisci i task
     if mobData.state ~= MOB_STATE.IDLE and mobData.state ~= MOB_STATE.WANDERING then
         clearMobTasks(mob, netId)
         DebugMob(netId, "Transitioning to IDLE, clearing previous tasks")
     end
-    
-    -- Se il mob è veramente idle (non sta facendo nulla), assegna wandering
+
     if isMobIdle(mob) then
         local current_coords = GetEntityCoords(mob)
         TaskWanderStandard(mob, 10.0, 10)
@@ -407,14 +354,12 @@ local function handleIdleBehavior(mob, zone, mobData, netId)
         local spawnpoint_id = Entity(mob).state.spawnpoint_id
         DebugMob(netId, "Started wandering from IDLE, spawnpoint:", spawnpoint_id)
 
-        -- Transizione a WANDERING
         local oldState = mobData.state
         mobData.state = MOB_STATE.WANDERING
         DebugStateChange(netId, oldState, mobData.state)
         return
     end
-    
-    -- Altrimenti, imposta lo stato come IDLE e attendi
+
     if mobData.state ~= MOB_STATE.IDLE then
         local oldState = mobData.state
         mobData.state = MOB_STATE.IDLE
@@ -450,10 +395,9 @@ local function processSingleMob(netId, mobData, currentTime)
         return
     end
 
-    processRPGShot(mob, mobData, netId)
     processMeleeAttack(mob, mobData, netId)
 
-    if mobData.pendingAttack or mobData.pendingRPGShot then
+    if mobData.pendingAttack then
         DebugMob(netId, "Waiting for pending attack to complete...")
         return
     end
@@ -479,20 +423,24 @@ local function processSingleMob(netId, mobData, currentTime)
 
     if nearPlayerDistance <= mobData.mobConfig.visualRange then
         DebugMob(netId, "Player in visual range:", string.format("%.2f", nearPlayerDistance), "/", mobData.mobConfig.visualRange)
-        
-        if mobData.mobConfig.behaviour == "aggressive" then
-            handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobData.mobConfig, netId, mobData)
-        elseif mobData.mobConfig.behaviour == "fugitive" then
-            handleEscapeFromPlayer(mob, nearPlayer, mobData.mobConfig, mobData, netId)
+
+        local nearPlayerPed = GetPlayerPed(nearPlayer)
+        if mobData.mobConfig.hasTrollMode --[[and IsEntityPlayingAnim(nearPlayerPed, 'custom@take_l', 'take_l', 3)]] then
+            DebugMob(netId, "Troll mode activated! Switching to Lasers")
+            ShootLaser(mob, nearPlayerPed, mobData, netId)
+        else
+            if mobData.mobConfig.behaviour == "aggressive" then
+                handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobData.mobConfig, netId, mobData)
+            elseif mobData.mobConfig.behaviour == "fugitive" then
+                handleEscapeFromPlayer(mob, nearPlayer, mobData.mobConfig, mobData, netId)
+            end
         end
+
         mobData.tickDelay = 150
     else
-        -- Nessun player in range - gestisci stato IDLE/WANDERING
         if mobData.state == MOB_STATE.WANDERING then
-            -- Già in wandering, verifica se sta ancora wanderando
             handleWanderingBehavior(mob, mobData.zone, mobData, netId)
         else
-            -- In IDLE o altro stato, tenta di iniziare il wandering
             handleIdleBehavior(mob, mobData.zone, mobData, netId)
         end
         mobData.tickDelay = 1000 
@@ -515,7 +463,6 @@ local function startControlThread()
             local currentTime = GetGameTimer()
             local hasActiveMobs = false
 
-            -- Aggiorna il mob più vicino per il debug (solo se debug attivo per evitare overhead)
             if Config.Debug then
                 closestControlledMobNetId = findClosestControlledMob()
             end
@@ -570,8 +517,7 @@ local function addControlledMob(zone, netId, mobType)
         lastProcessTime = 0,
         tickDelay = 500,
         attackCooldown = 0,
-        pendingAttack = nil,
-        pendingRPGShot = nil
+        pendingAttack = nil
     }
 
     Debug("Added mob to control: " .. netId .. " | Total: " .. getControlledMobCount())
@@ -625,7 +571,6 @@ RegisterCommand("mob_debug_status", function()
         print("Zone: " .. mobData.zone)
         print("Tick Delay: " .. mobData.tickDelay .. "ms")
         print("Has Pending Attack: " .. tostring(mobData.pendingAttack ~= nil))
-        print("Has Pending RPG: " .. tostring(mobData.pendingRPGShot ~= nil))
         print("Attack Cooldown: " .. (mobData.attackCooldown - GetGameTimer()) .. "ms remaining")
         print("Is Idle (DO_NOTHING): " .. tostring(isMobIdle(mobData.mob)))
         print("Is Wandering: " .. tostring(isMobWandering(mobData.mob)))

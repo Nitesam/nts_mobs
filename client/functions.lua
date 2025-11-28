@@ -131,41 +131,25 @@ function RayCastGamePlayCamera(distance)
     return hit, endCoords, entityHit
 end
 
---if not Config.Debug then return end
-
-local nearbyPeds = {}
-
--- Thread di detection
-Citizen.CreateThread(function()
-    while true do
-        local playerCoords = GetEntityCoords(cache.ped)
-        local detected = {}
-
-        for _, entity in ipairs(GetGamePool('CPed')) do
-            if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
-                local spawnpointId = Entity(entity).state.spawnpoint_id
-                if spawnpointId then
-                    local pedCoords = GetEntityCoords(entity)
-                    local distance = #(playerCoords - pedCoords)
-                    if distance < 100.0 then
-                        detected[#detected + 1] = {entity = entity, coords = pedCoords, spawnpointId = spawnpointId}
-                    end
-                end
-            end
-        end
-
-        nearbyPeds = detected
-        Wait(1000)
-    end
-end)
+if not Config.Debug then return end
 
 -- Thread di rendering
-Citizen.CreateThread(function()
-    while true do
-        for _, pedData in ipairs(nearbyPeds) do
-            local markerPos = pedData.coords + vec3(0, 0, 1.5)
-            qbx.drawText3d({text = "Spawnpoint: " .. tostring(pedData.spawnpointId), coords = markerPos + vec3(0, 0, 0.3)})
+function ThreadMarkingPoints(points)
+    Citizen.CreateThread(function()
+        while true do
+            for _, point in ipairs(points) do
+                DrawMarker(
+                    2,
+                    point.x, point.y, point.z + 10.0,
+                    0.0, 0.0, 0.0,
+                    0.0, 0.0, 0.0,
+                    2.3, 2.3, 2.3,
+                    0, 255, 0, 150,
+                    false, false, 2,
+                    false, nil, nil, false
+                )
+            end
+            Wait(0)
         end
-        Wait(0)
-    end
-end)
+    end)
+end
