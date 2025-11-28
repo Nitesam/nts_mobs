@@ -23,8 +23,6 @@ function GetRandomPoints(index, points, count)
     local triangles, borderDistance, polygonPoints = getZoneTriangles(index, points)
     local generatedPoints = {}
     local maxAttempts = 20
-    local generated = 0
-
     for i = 1, count do
         local point
         local attempts = 0
@@ -44,7 +42,7 @@ function GetRandomPoints(index, points, count)
 
         local retval, groundZ = GetGroundZFor_3dCoord(point.x, point.y, point.z + 50.0, true)
         if retval then 
-            point = vec3(point.x, point.y, groundZ + 0.5)
+            point = vec3(point.x, point.y, groundZ + 1.0)
         end
 
         if Config.Mob.Zone[index].whitelistedSoilTypes and next(Config.Mob.Zone[index].whitelistedSoilTypes) then
@@ -52,19 +50,17 @@ function GetRandomPoints(index, points, count)
 
             if hit and Config.Mob.Zone[index].whitelistedSoilTypes[material] then
                 generatedPoints[#generatedPoints + 1] = point
-                generated = generated + 1
             else
                 i -= 1 -- Retry this iteration (little bit scary, i'd like to add a maxAttempts!)
             end
         else
             generatedPoints[#generatedPoints + 1] = point
-            generated = generated + 1
         end
 
         if i % 10 == 0 then Wait(0) end
     end
 
-    Debug(generated, "points added for zone", index)
+    Debug(#generatedPoints, "points added for zone", index)
     return generatedPoints
 end
 
@@ -134,3 +130,42 @@ function RayCastGamePlayCamera(distance)
     local retval, hit, endCoords, surfaceNormal, entityHit = GetShapeTestResult(shapeTest)
     return hit, endCoords, entityHit
 end
+
+--if not Config.Debug then return end
+
+local nearbyPeds = {}
+
+-- Thread di detection
+Citizen.CreateThread(function()
+    while true do
+        local playerCoords = GetEntityCoords(cache.ped)
+        local detected = {}
+
+        for _, entity in ipairs(GetGamePool('CPed')) do
+            if DoesEntityExist(entity) and not IsPedAPlayer(entity) then
+                local spawnpointId = Entity(entity).state.spawnpoint_id
+                if spawnpointId then
+                    local pedCoords = GetEntityCoords(entity)
+                    local distance = #(playerCoords - pedCoords)
+                    if distance < 100.0 then
+                        detected[#detected + 1] = {entity = entity, coords = pedCoords, spawnpointId = spawnpointId}
+                    end
+                end
+            end
+        end
+
+        nearbyPeds = detected
+        Wait(1000)
+    end
+end)
+
+-- Thread di rendering
+Citizen.CreateThread(function()
+    while true do
+        for _, pedData in ipairs(nearbyPeds) do
+            local markerPos = pedData.coords + vec3(0, 0, 1.5)
+            qbx.drawText3d({text = "Spawnpoint: " .. tostring(pedData.spawnpointId), coords = markerPos + vec3(0, 0, 0.3)})
+        end
+        Wait(0)
+    end
+end)

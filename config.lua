@@ -26,13 +26,13 @@ Config.Mob = {
             --- Model & Base Stats
             ped = "a_c_deer",                           -- GTA model hash/name
             xp = nil,                                   -- XP reward (nil = disabled for now)
-            speed = 3.0,                                -- Movement speed multiplier
+            speed = 1.0,                                -- Movement speed multiplier
 
             --- Animation & Movement
             movClipset = "creatures@deer@move",         -- Movement animation clipset
-            visualRange = 50,                           -- Detection range (meters)
+            visualRange = 20,                           -- Detection range (meters)
 
-            behaviour = "passive",                      -- Behaviour type (passive/aggressive/fugitive/neutral)
+            behaviour = "fugitive",                     -- Behaviour type (passive/aggressive/fugitive/neutral)
 
             --- Combat Configuration
             --  attackRange = 1.5,                      -- Attack range (meters)
@@ -84,7 +84,7 @@ Config.Mob = {
             mobMax = 120,                               -- Maximum mobs in zone
             newSpawnTime = 15,                          -- Spawn interval (seconds)
             spawnBorderDistance = 25,                   -- Min distance from polygon edge (meters)
-            forcedMinHeight = nil,                      -- Force minimum Z height (nil = auto)
+            forcedMinHeight =  98.727104187012,         -- Force minimum Z height (nil = auto)
 
             --- Mob Spawn Weights
             mobs = {
@@ -92,9 +92,9 @@ Config.Mob = {
             },
 
             --- Soil Type Restrictions (optional)
-            whitelistedSoilTypes = {
-                [-1595148316] = true                    -- Allowed soil type hashes
-            }
+            --whitelistedSoilTypes = {
+            --    [-1595148316] = true                    -- Allowed soil type hashes
+            --}
         }
     }
 }

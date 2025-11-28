@@ -13,12 +13,14 @@ for k, v in pairs(Config.Mob.Zone) do
         running = false,
         playersInside = {},
         lastPlayerLeft = 0,
-        spawnPoints = {}
+        spawnPoints = {},
+        currentSpawnpointCounter = 0
     }
 end
 
 local function requestZoneSpawnPoints(index, requestingPlayer)
-    local resp = lib.callback.await("nts_mobs:client:request_random_points", requestingPlayer, index, 100)
+    if not Config.Mob.Zone?[index]?.mobMax or Config.Mob.Zone[index].mobMax <= 0 then return false end
+    local resp = lib.callback.await("nts_mobs:client:request_random_points", requestingPlayer, index, (Config.Mob.Zone[index].mobMax * 2) + 1)
     if resp and type(resp) == "table" and #resp > 0 then
         ZONE_TAB[index].spawnPoints = resp
         return true
@@ -27,51 +29,57 @@ local function requestZoneSpawnPoints(index, requestingPlayer)
     return false
 end
 
-local function getRandomSpawnCoords(index)
+local function getRandomSpawnCoords(index, spawnpoint_id)
     local zone = ZONE_TAB[index]
-    if not zone.spawnPoints or #zone.spawnPoints == 0 then
-        return nil
-    end
-
-    return zone.spawnPoints[math.random(#zone.spawnPoints)]
+    if not zone.spawnPoints or #zone.spawnPoints == 0 then return nil end
+    return zone.spawnPoints[spawnpoint_id]
 end
 
-local function spawnMob(index, mobType, try)
-    local coords = getRandomSpawnCoords(index)
+local function spawnMob(index, mobType, try, spawnpoint_id)
+    if not spawnpoint_id then
+        ZONE_TAB[index].currentSpawnpointCounter = (ZONE_TAB[index].currentSpawnpointCounter + 1) % #ZONE_TAB[index].spawnPoints
+        spawnpoint_id = ZONE_TAB[index].currentSpawnpointCounter
+    end
+
+    local coords = getRandomSpawnCoords(index, spawnpoint_id)
     if not coords then
-        Debug("No spawn points available for zone " .. index)
+        print("No spawn points available for zone " .. index)
         return
     end
 
-    Debug(mobType .. " spawning after " .. try + 1 .. " try.")
+    print(mobType .. " spawning after " .. try + 1 .. " try.")
 
     local spawnedPed = CreatePed(2, Config.Mob.MobType[mobType].ped, coords.x, coords.y, coords.z, 0.0, true, true)
     Citizen.Wait(100)
 
     if DoesEntityExist(spawnedPed) then
         local tempNet = NetworkGetNetworkIdFromEntity(spawnedPed)
-        ZONE_TAB[index].mob[tempNet] = {ped = spawnedPed, owner = NetworkGetEntityOwner(spawnedPed) or -1, type = mobType, diedTime = 0}
+        ZONE_TAB[index].mob[tempNet] = {ped = spawnedPed, owner = NetworkGetEntityOwner(spawnedPed) or -1, type = mobType, diedTime = 0, spawnpoint_id = spawnpoint_id}
         ZONE_TAB[index].active += 1
+
+        Entity(spawnedPed).state.mobZone = index
+        Entity(spawnedPed).state.mobType = mobType
+        Entity(spawnedPed).state.spawnpoint_id = spawnpoint_id
 
         if ZONE_TAB[index].mob[tempNet].owner ~= -1 then
             TriggerClientEvent("nts_mobs:client:control_mob", ZONE_TAB[index].mob[tempNet].owner, index, tempNet, mobType)
-            Debug("Mob " .. tempNet .. " spawned and assigned to owner " .. ZONE_TAB[index].mob[tempNet].owner .. ".")
+            print("Mob " .. tempNet .. " spawned on spawn number " .. spawnpoint_id .. " and assigned to owner " .. ZONE_TAB[index].mob[tempNet].owner .. ".")
         end
     else
         if try < 10 then
-            spawnMob(index, mobType, try + 1)
+            spawnMob(index, mobType, try + 1, spawnpoint_id)
         end
     end
 end
 
-local function extractMob(index)
+local function extractMob(index, spawnpoint_id)
     if not ZONE_TAB[index].running then return false end
 
     if ZONE_TAB[index].active < Config.Mob.Zone[index].mobMax then
         local chosen = pickRandomMob(Config.Mob.Zone[index].mobs)
 
         if chosen then
-            spawnMob(index, chosen, 0)
+            spawnMob(index, chosen, 0, spawnpoint_id)
             return true
         end
     end
@@ -108,6 +116,7 @@ local function removeMob(zone, netId, giveDrop)
             end
         end
 
+        local saved_spawnpoint = ZONE_TAB[zone].mob[netId].spawnpoint_id
         ZONE_TAB[zone].mob[netId] = nil
         ZONE_TAB[zone].active -= 1
 
@@ -115,7 +124,7 @@ local function removeMob(zone, netId, giveDrop)
             SetTimeout(Config.Mob.Zone[zone].newSpawnTime * 1000, function()
                 if ZONE_TAB[zone].running then
                     Debug("New Mob Spawning Try in " .. zone .. " has been requested because timeout of removed one expired.")
-                    extractMob(zone)
+                    extractMob(zone, saved_spawnpoint)
                 end
             end)
         end
@@ -305,5 +314,3 @@ AddEventHandler("onResourceStop", function(resourceName)
         end
     end
 end)
-
-

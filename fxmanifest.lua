@@ -11,7 +11,8 @@ shared_script {
     "shared/enums.lua",
     "shared/bridge.lua",
     "shared/functions.lua",
-    "@ox_lib/init.lua"
+    "@ox_lib/init.lua",
+    '@qbx_core/modules/lib.lua',
 }
 
 client_scripts { "client/*.lua" }
