@@ -49,27 +49,29 @@ local function spawnMob(index, mobType, try, spawnpoint_id)
 
     print(mobType .. " spawning after " .. try + 1 .. " try.")
 
-    local spawnedPed = CreatePed(2, Config.Mob.MobType[mobType].ped, coords.x, coords.y, coords.z, 0.0, true, true)
-    Citizen.Wait(100)
+    Citizen.CreateThread(function()
+        local spawnedPed = CreatePed(2, Config.Mob.MobType[mobType].ped, coords.x, coords.y, coords.z, 0.0, true, true)
+        Citizen.Wait(100)
 
-    if DoesEntityExist(spawnedPed) then
-        local tempNet = NetworkGetNetworkIdFromEntity(spawnedPed)
-        ZONE_TAB[index].mob[tempNet] = {ped = spawnedPed, owner = NetworkGetEntityOwner(spawnedPed) or -1, type = mobType, diedTime = 0, spawnpoint_id = spawnpoint_id}
-        ZONE_TAB[index].active += 1
+        if DoesEntityExist(spawnedPed) then
+            local tempNet = NetworkGetNetworkIdFromEntity(spawnedPed)
+            ZONE_TAB[index].mob[tempNet] = {ped = spawnedPed, owner = NetworkGetEntityOwner(spawnedPed) or -1, type = mobType, diedTime = 0, spawnpoint_id = spawnpoint_id}
+            ZONE_TAB[index].active += 1
 
-        Entity(spawnedPed).state.mobZone = index
-        Entity(spawnedPed).state.mobType = mobType
-        Entity(spawnedPed).state.spawnpoint_id = spawnpoint_id
+            Entity(spawnedPed).state.mobZone = index
+            Entity(spawnedPed).state.mobType = mobType
+            Entity(spawnedPed).state.spawnpoint_id = spawnpoint_id
 
-        if ZONE_TAB[index].mob[tempNet].owner ~= -1 then
-            TriggerClientEvent("nts_mobs:client:control_mob", ZONE_TAB[index].mob[tempNet].owner, index, tempNet, mobType)
-            print("Mob " .. tempNet .. " spawned on spawn number " .. spawnpoint_id .. " and assigned to owner " .. ZONE_TAB[index].mob[tempNet].owner .. ".")
+            if ZONE_TAB[index].mob[tempNet].owner ~= -1 then
+                TriggerClientEvent("nts_mobs:client:control_mob", ZONE_TAB[index].mob[tempNet].owner, index, tempNet, mobType)
+                print("Mob " .. tempNet .. " spawned on spawn number " .. spawnpoint_id .. " and assigned to owner " .. ZONE_TAB[index].mob[tempNet].owner .. ".")
+            end
+        else
+            if try < 10 then
+                spawnMob(index, mobType, try + 1, spawnpoint_id)
+            end
         end
-    else
-        if try < 10 then
-            spawnMob(index, mobType, try + 1, spawnpoint_id)
-        end
-    end
+    end)
 end
 
 local function extractMob(index, spawnpoint_id)

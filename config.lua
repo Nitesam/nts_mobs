@@ -7,7 +7,7 @@ Config = {}
 ---============================================================================
 --- GENERAL SETTINGS
 ---============================================================================
-Config.Debug = false                                    -- Enable debug mode (disable in production)
+Config.Debug = true                                     -- Enable debug mode (disable in production)
 Config.ZoneEmptyTimeout = 60                            -- Seconds to reset zone if empty (per-zone override available)
 Config.ZoneEntryCooldown = 5                            -- Prevent in/out abuse (cooldown in seconds)
 
@@ -81,7 +81,7 @@ Config.Mob = {
             },
 
             --- Spawning Configuration
-            mobMax = 120,                               -- Maximum mobs in zone
+            mobMax = 20,                                -- Maximum mobs in zone
             newSpawnTime = 15,                          -- Spawn interval (seconds)
             spawnBorderDistance = 25,                   -- Min distance from polygon edge (meters)
             forcedMinHeight =  98.727104187012,         -- Force minimum Z height (nil = auto)
