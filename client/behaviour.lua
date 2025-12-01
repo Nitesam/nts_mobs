@@ -464,7 +464,8 @@ local function handleEscapeFromPlayer(mob, nearPlayer, mobConfig, mobData, netId
         end
         local distance_to_flee = mobConfig.escapeDistanceMax?.min and mobConfig.escapeDistanceMax?.max and
             math.random(mobConfig.escapeDistanceMax.min, mobConfig.escapeDistanceMax.max) or 100.0
-        TaskSmartFleePed(mob, nearPlayerPed, distance_to_flee, 15000, false, false)
+
+        TaskSmartFleePed(mob, nearPlayerPed, distance_to_flee + 0.0, 15000, false, false)
         DebugMob(netId, "Fleeing from player! (15s duration)")
     end
 

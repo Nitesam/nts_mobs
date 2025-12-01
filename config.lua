@@ -7,7 +7,7 @@ Config = {}
 ---============================================================================
 --- GENERAL SETTINGS
 ---============================================================================
-Config.Debug = true                                     -- Enable debug mode (disable in production)
+Config.Debug = false                                    -- Enable debug mode (disable in production)
 Config.ZoneEmptyTimeout = 60                            -- Seconds to reset zone if empty (per-zone override available)
 Config.ZoneEntryCooldown = 5                            -- Prevent in/out abuse (cooldown in seconds)
 
@@ -34,7 +34,7 @@ Config.Mob = {
             movClipset = "creatures@deer@move",         -- Movement animation clipset
             visualRange = 20,                           -- Detection range (meters)
 
-            escapeDistanceMax = {min = 50.0, max = 100.0}, -- Max distance to flee (meters)
+            escapeDistanceMax = {min = 20.0, max = 50.0}, -- Max distance to flee (meters)
 
             --- Combat Configuration                    -- NOT USED FOR FUGITIVE BEHAVIOUR
             --  attackRange = 1.5,                      -- Attack range (meters)
