@@ -60,7 +60,6 @@ function GetRandomPoints(index, points, count)
         if i % 10 == 0 then Wait(0) end
     end
 
-    Debug(#generatedPoints, "points added for zone", index)
     return generatedPoints
 end
 
@@ -87,11 +86,13 @@ function getClosestPlayerToMob(mob)
     local pos = GetEntityCoords(mob)
 
     for player, ped in pairs(GetPlayers(false, true, true)) do
-        local distance = #(pos - GetEntityCoords(ped))
+        if not IsPedDeadOrDying(ped, true) then
+            local distance = #(pos - GetEntityCoords(ped))
 
-        if closestDistance == -1 or closestDistance > distance then
-            closestPlayer = player
-            closestDistance = distance
+            if closestDistance == -1 or closestDistance > distance then
+                closestPlayer = player
+                closestDistance = distance
+            end
         end
     end
 
