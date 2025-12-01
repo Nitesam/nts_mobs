@@ -1,3 +1,8 @@
+-- IL SEGUENTE FILE E' STATO RIORGANIZZATO PER SEGUIRE GLI STANDARD SRP, NON SAPENDO SE CONTINUERO' SEMPRE IO
+-- (NITESAM) LO SVILUPPO DEL BEHAVIOUR (LA PARTE LOGICA DELLO SCRIPT), OGNI FUNZIONE HA UN COMMENTO CHE SPIEGA IL SUO SCOPO,
+-- I COMMENTI SONO GENERATI DA OPUS 4.5, SONO LAZY E MI SECCAVO A FARLI MANUALMENTE :)
+
+-- ENUMS LOCALI PER ACCESSO PIU' VELOCE, HO EVITATO DI CHIAMARE LA GLOBAL ENUM O DICHIARARE VAR LOCALI PER TASK TIPO LA 233.
 local DO_NOTHING = 15
 local TASK_WANDER = 222
 local TASK_GO_TO_COORD_ANY_MEANS = 224
@@ -8,9 +13,9 @@ local MOTION_STATE_RUNNING = -530524
 -- SISTEMA CENTRALIZZATO DI CONTROLLO MOB
 -- ============================================
 
-CONTROLLED_MOBS = {}          -- Tabella dei mob controllati
-local controlThreadActive = false  -- Flag stato thread
-local THREAD_TICK_RATE = 50        -- ms - frequenza base del thread
+CONTROLLED_MOBS = {}                   -- Tabella dei mob controllati
+local controlThreadActive = false      -- Flag stato thread
+local THREAD_TICK_RATE = 50            -- ms - frequenza base del thread
 local closestControlledMobNetId = nil  -- NetId del mob controllato più vicino (per debug)
 
 local MOB_STATE <const> = {
@@ -29,6 +34,13 @@ local MOB_STATE_NAMES = {
     [4] = "ATTACKING",
     [5] = "FLEEING",
     [6] = "COOLDOWN"
+}
+
+-- Stati che richiedono persistenza via statebag
+local CRITICAL_STATES <const> = {
+    [MOB_STATE.CHASING] = true,
+    [MOB_STATE.ATTACKING] = true,
+    [MOB_STATE.COOLDOWN] = true
 }
 
 -- ============================================
@@ -83,6 +95,61 @@ local function findClosestControlledMob()
 end
 
 -- ============================================
+-- STATEBAG FUNCTIONS (per ownership handoff)
+-- ============================================
+
+--- Salva lo stato critico del mob nello statebag (solo quando necessario)
+--- @param mob number Entity handle
+--- @param mobData table Dati del mob
+--- @param netId number Network ID
+local function saveCriticalState(mob, mobData, netId)
+    if not CRITICAL_STATES[mobData.state] then return end
+    if not mobData.currentTarget then return end
+
+    local targetServerId = GetPlayerServerId(mobData.currentTarget)
+    if targetServerId <= 0 then return end
+
+    local entityState = Entity(mob).state
+    if entityState.combatTarget ~= targetServerId then
+        entityState:set('combatTarget', targetServerId, true)
+        entityState:set('combatState', mobData.state, true)
+        DebugMob(netId, "Saved critical state to statebag - Target:", targetServerId, "State:", MOB_STATE_NAMES[mobData.state])
+    end
+end
+
+--- Pulisce lo stato critico dallo statebag (quando non più in combattimento)
+--- @param mob number Entity handle
+--- @param netId number Network ID
+local function clearCriticalState(mob, netId)
+    local entityState = Entity(mob).state
+    if entityState.combatTarget then
+        entityState:set('combatTarget', nil, true)
+        entityState:set('combatState', nil, true)
+        DebugMob(netId, "Cleared critical state from statebag")
+    end
+end
+
+--- Legge lo stato critico dallo statebag (quando si acquisisce ownership)
+--- @param mob number Entity handle
+--- @return number|nil targetServerId, number|nil state
+local function readCriticalState(mob)
+    local entityState = Entity(mob).state
+    return entityState.combatTarget, entityState.combatState
+end
+
+--- Converte server ID in player ID locale
+--- @param serverId number Server ID del player
+--- @return number|nil playerId locale o nil se non trovato
+local function getPlayerFromServerId(serverId)
+    for _, playerId in ipairs(GetActivePlayers()) do
+        if GetPlayerServerId(playerId) == serverId then
+            return playerId
+        end
+    end
+    return nil
+end
+
+-- ============================================
 -- UTILITY FUNCTIONS
 -- ============================================
 
@@ -109,7 +176,7 @@ end
 ---@param mob number Entity handle
 ---@param mobConfig table Mob type configuration
 ---@param netId number Network ID for debug
-local function ensureMovementClipset(mob, mobConfig, netId)
+local function ensureMovementClipset(mob, mobConfig, netId) -- non usata per ora, idk al momento se serve in base alle richieste di black, prima lo usavo
     local expectedClipset = GetHashKey(mobConfig.movClipset)
     if GetPedMovementClipset(mob) ~= expectedClipset then
         SetPedMovementClipset(mob, mobConfig.movClipset, 1.0)
@@ -198,6 +265,11 @@ local function initMeleeAttack(mob, targetPed, targetPlayer, mobConfig, netId, m
     if not attack then
         TaskCombatPed(mob, targetPed, 0, 1)
         mobData.attackCooldown = GetGameTimer() + 2500
+
+        local oldState = mobData.state
+        mobData.state = MOB_STATE.ATTACKING
+        DebugStateChange(netId, oldState, mobData.state)
+
         DebugMob(netId, "Basic melee attack (no custom attack config)")
         return
     end
@@ -277,34 +349,58 @@ end
 local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig, netId, mobData)
     local nearPlayerPed = GetPlayerPed(nearPlayer)
 
-    if mobData.state ~= MOB_STATE.CHASING then
+    if IsPedDeadOrDying(nearPlayerPed, true) then
+        DebugMob(netId, "Target is dead, looking for new target")
+        mobData.currentTarget = nil
+        clearCriticalState(mob, netId)
+        local oldState = mobData.state
+        mobData.state = MOB_STATE.IDLE
+        DebugStateChange(netId, oldState, mobData.state)
+        clearMobTasks(mob, netId)
+        return
+    end
+
+    mobData.currentTarget = nearPlayer
+
+    if mobData.state ~= MOB_STATE.CHASING and
+       mobData.state ~= MOB_STATE.ATTACKING and
+       mobData.state ~= MOB_STATE.COOLDOWN then
         clearMobTasks(mob, netId)
     end
 
     SetPedMoveRateOverride(mob, mobConfig.speed)
 
-    if not GetIsTaskActive(mob, 233) and not GetIsTaskActive(mob, 35) then
-        if mobConfig.speed > 1.0 then
-            ForcePedMotionState(mob, MOTION_STATE_RUNNING, false, 0, 0)
-        end
-        TaskGotoEntityAiming(mob, nearPlayerPed, 2.0, 25.0)
-        DebugMob(netId, "Chasing player, distance:", string.format("%.2f", nearPlayerDistance))
-    end
-
     local currentTime = GetGameTimer()
     local canAttack = currentTime >= (mobData.attackCooldown or 0)
-    print("^2attackCooldwon:^7", mobData.attackCooldown, "currentTime:", currentTime, "canAttack:", tostring(canAttack))
-    if nearPlayerDistance <= mobConfig.attackRange and
-       not IsPedDeadOrDying(nearPlayerPed, true) and canAttack then
-        initMeleeAttack(mob, nearPlayerPed, nearPlayer, mobConfig, netId, mobData)
-    elseif nearPlayerDistance <= mobConfig.attackRange and not canAttack then
-        local remainingCooldown = (mobData.attackCooldown or 0) - currentTime
-        DebugMob(netId, "In attack range but on cooldown:", string.format("%.0fms", remainingCooldown))
+
+    if nearPlayerDistance <= mobConfig.attackRange then
+        if canAttack then
+            initMeleeAttack(mob, nearPlayerPed, nearPlayer, mobConfig, netId, mobData)
+            return
+        else
+            local remainingCooldown = (mobData.attackCooldown or 0) - currentTime
+            DebugMob(netId, "In attack range but on cooldown:", string.format("%.0fms", remainingCooldown))
+            TaskTurnPedToFaceEntity(mob, nearPlayerPed, 500)
+        end
+    else
+        local isInCombat = GetIsTaskActive(mob, 233) or GetIsTaskActive(mob, 35) or GetIsTaskActive(mob, 287)
+        if not isInCombat then
+            if mobConfig.speed > 1.0 then
+                ForcePedMotionState(mob, MOTION_STATE_RUNNING, false, 0, 0)
+            end
+            TaskGotoEntityAiming(mob, nearPlayerPed, 2.0, 25.0)
+            DebugMob(netId, "Chasing player, distance:", string.format("%.2f", nearPlayerDistance))
+        end
     end
 
     local oldState = mobData.state
     mobData.state = MOB_STATE.CHASING
     DebugStateChange(netId, oldState, mobData.state)
+
+    if not mobData.lastStatebagUpdate or (GetGameTimer() - mobData.lastStatebagUpdate) > 2000 then
+        saveCriticalState(mob, mobData, netId)
+        mobData.lastStatebagUpdate = GetGameTimer()
+    end
 end
 
 --- Handles mob fleeing behavior
@@ -315,6 +411,16 @@ end
 ---@param netId number
 local function handleEscapeFromPlayer(mob, nearPlayer, mobConfig, mobData, netId)
     local nearPlayerPed = GetPlayerPed(nearPlayer)
+
+    if IsPedDeadOrDying(nearPlayerPed, true) then
+        DebugMob(netId, "Player is dead, no need to flee")
+        mobData.currentTarget = nil
+        local oldState = mobData.state
+        mobData.state = MOB_STATE.IDLE
+        DebugStateChange(netId, oldState, mobData.state)
+        clearMobTasks(mob, netId)
+        return
+    end
 
     if mobData.state ~= MOB_STATE.FLEEING then
         clearMobTasks(mob, netId)
@@ -382,7 +488,6 @@ local function handleIdleBehavior(mob, zone, mobData, netId)
     end
 
     if isMobIdle(mob) then
-        -- implement switching from IDLE to WANDERING generating a random point in the zone
         generateCoordsAndGo(mob, zone, mobData, netId)
 
         local oldState = mobData.state
@@ -435,8 +540,8 @@ local function processSingleMob(netId, mobData, currentTime)
     if mobData.state == MOB_STATE.COOLDOWN or mobData.state == MOB_STATE.ATTACKING then
         if currentTime >= (mobData.attackCooldown or 0) then
             local oldState = mobData.state
-            mobData.state = MOB_STATE.IDLE
-            DebugMob(netId, "Attack cooldown finished")
+            mobData.state = MOB_STATE.CHASING
+            DebugMob(netId, "Attack cooldown finished, returning to chase")
             DebugStateChange(netId, oldState, mobData.state)
         else
             return
@@ -451,10 +556,12 @@ local function processSingleMob(netId, mobData, currentTime)
     local nearPlayer, nearPlayerDistance = getClosestPlayerToMob(mob)
     --ensureMovementClipset(mob, mobData.mobConfig, netId)
 
-    if nearPlayerDistance <= mobData.mobConfig.visualRange then
+    local nearPlayerPed = GetPlayerPed(nearPlayer)
+    local isNearPlayerDead = IsPedDeadOrDying(nearPlayerPed, true)
+
+    if nearPlayerDistance <= mobData.mobConfig.visualRange and not isNearPlayerDead then
         DebugMob(netId, "Player in visual range:", string.format("%.2f", nearPlayerDistance), "/", mobData.mobConfig.visualRange)
 
-        local nearPlayerPed = GetPlayerPed(nearPlayer)
         if mobData.mobConfig.hasTrollMode and IsEntityPlayingAnim(nearPlayerPed, 'custom@take_l', 'take_l', 3) then
             TaskTurnPedToFaceEntity(mob, nearPlayerPed, 500)
             SetTimeout(500, function() ShootLaser(mob, nearPlayerPed, mobData, netId) end)
@@ -465,9 +572,25 @@ local function processSingleMob(netId, mobData, currentTime)
             elseif mobData.mobConfig.behaviour == "fugitive" then
                 handleEscapeFromPlayer(mob, nearPlayer, mobData.mobConfig, mobData, netId)
             end
-            print("This is happening for " .. netId)
             mobData.tickDelay = 150
         end
+    elseif isNearPlayerDead then
+        if mobData.state == MOB_STATE.CHASING or mobData.state == MOB_STATE.ATTACKING or mobData.state == MOB_STATE.COOLDOWN then
+            DebugMob(netId, "Nearest player is dead, returning to idle")
+            mobData.currentTarget = nil
+            clearCriticalState(mob, netId)
+            clearMobTasks(mob, netId)
+            local oldState = mobData.state
+            mobData.state = MOB_STATE.IDLE
+            DebugStateChange(netId, oldState, mobData.state)
+        end
+
+        if mobData.state == MOB_STATE.WANDERING then
+            handleWanderingBehavior(mob, mobData.zone, mobData, netId)
+        else
+            handleIdleBehavior(mob, mobData.zone, mobData, netId)
+        end
+        mobData.tickDelay = 1000
     else
         if mobData.state == MOB_STATE.WANDERING then
             handleWanderingBehavior(mob, mobData.zone, mobData, netId)
@@ -540,15 +663,36 @@ local function addControlledMob(zone, netId, mobType)
 
     configureMobBehavior(mob)
 
+    local savedTargetServerId, savedState = readCriticalState(mob)
+    local restoredTarget = nil
+    local initialState = MOB_STATE.IDLE
+
+    if savedTargetServerId and savedState and CRITICAL_STATES[savedState] then
+        restoredTarget = getPlayerFromServerId(savedTargetServerId)
+        if restoredTarget then
+            local restoredPed = GetPlayerPed(restoredTarget)
+            if DoesEntityExist(restoredPed) and not IsPedDeadOrDying(restoredPed, true) then
+                initialState = savedState
+                Debug("Restored critical state from statebag - Target: " .. savedTargetServerId .. " State: " .. MOB_STATE_NAMES[savedState])
+            else
+                clearCriticalState(mob, netId)
+            end
+        else
+            clearCriticalState(mob, netId)
+        end
+    end
+
     CONTROLLED_MOBS[netId] = {
         mob = mob,
         zone = zone,
         mobConfig = mobConfig,
-        state = MOB_STATE.IDLE,
+        state = initialState,
+        currentTarget = restoredTarget,
         lastProcessTime = 0,
         tickDelay = 500,
         attackCooldown = 0,
-        pendingAttack = nil
+        pendingAttack = nil,
+        lastStatebagUpdate = 0
     }
 
     Debug("Added mob to control: " .. netId .. " | Total: " .. getControlledMobCount())
@@ -567,10 +711,10 @@ RegisterNetEvent("nts_mobs:client:internal_add_mob", function(zone, netId, mobTy
     addControlledMob(zone, netId, mobType)
 end)
 
-RegisterNetEvent("nts_mobs:client:internal_remove_mob", function(netId)
+--[[RegisterNetEvent("nts_mobs:client:internal_remove_mob", function(netId) -- non usato atm, evito di esporre.
     --Debug("Received remove_mob event - NetId: " .. netId)
     removeControlledMob(netId)
-end)
+end)]]
 
 
 -- ============================================

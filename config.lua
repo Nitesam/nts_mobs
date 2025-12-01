@@ -7,7 +7,7 @@ Config = {}
 ---============================================================================
 --- GENERAL SETTINGS
 ---============================================================================
-Config.Debug = true                                     -- Enable debug mode (disable in production)
+Config.Debug = false                                    -- Enable debug mode (disable in production)
 Config.ZoneEmptyTimeout = 60                            -- Seconds to reset zone if empty (per-zone override available)
 Config.ZoneEntryCooldown = 5                            -- Prevent in/out abuse (cooldown in seconds)
 
@@ -74,7 +74,7 @@ Config.Mob = {
             behaviour = "aggressive",                   -- Behaviour type (passive/aggressive/fugitive/neutral)
 
             --- Combat Configuration
-            attackRange = 2.0,                          -- Attack range (meters)
+            attackRange = 15.0,                          -- Attack range (meters)
             attackTypes = {                             -- if behaviour is in aggressive or passive, you can define attack types here if ped does not have default attacks
                 --[[["main"] = {
                     anim = nil,                         -- Set to nil for default game attack
@@ -106,8 +106,8 @@ Config.Mob = {
     Zone = {
         ["zone_a"] = {
             --- Display & Identification
-            name = "Zone A",                            -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            name = "Zone A",                             -- Zone display name
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -118,20 +118,20 @@ Config.Mob = {
             },
 
             --- Spawning Configuration
-            mobMax = 3,                                 -- Maximum mobs in zone
-            newSpawnTime = 15,                          -- Spawn interval (seconds)
-            spawnBorderDistance = 3,                    -- Min distance from polygon edge (meters)
-            forcedMinHeight =  98.727104187012,         -- Force minimum Z height (nil = auto)
+            mobMax = 60,                                 -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
 
             --- Mob Spawn Weights
             mobs = {
-                ["deer"] = 50,                          -- Higher = higher spawn chance
+                ["deer"] = 50,                           -- Higher = higher spawn chance
                 ["mountain_lion"] = 25
             },
 
             --- Soil Type Restrictions (optional)
             --whitelistedSoilTypes = {
-            --    [-1595148316] = true                    -- Allowed soil type hashes
+            --    [-1595148316] = true                   -- Allowed soil type hashes
             --}
         }
     }

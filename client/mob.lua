@@ -36,36 +36,66 @@ local function makeBlipForZone(index, zoneConfig)
 end
 
 local thread_helper_initialized = 0
+local knownMobs = {}
+
 local function init_thread_helper(zone)
     if thread_helper_initialized ~= 0 then return end
     thread_helper_initialized = zone
+    knownMobs = {}
 
-    local zone = zone
     Citizen.CreateThread(function()
         print("Starting thread helper for zone " .. zone)
+        local maxDistSq <const> = 150.0 * 150.0
+
         local self_net_id = PlayerId()
+        local tickCounter = 0
+
         while thread_helper_initialized == zone do
-            local self_coords = GetEntityCoords(cache.ped)
-            local npcs = lib.getNearbyPeds(self_coords, 300.0)
-            for k,v in pairs(npcs) do
-                local mobType = Entity(v.ped).state.mobType
-                if mobType and not IsPedAPlayer(v.ped) then
-                    local netId = NetworkGetNetworkIdFromEntity(v.ped)
-                    if not netId or netId == 0 then goto continue end
-                    if CONTROLLED_MOBS[netId] then goto continue end
+            tickCounter = tickCounter + 1
 
-                    local ped_owner = NetworkGetEntityOwner(v.ped) or -1
-                    if ped_owner == self_net_id then
-                        TriggerEvent("nts_mobs:client:internal_add_mob", zone, netId, mobType)
-                        Debug("^1[Thread Helper]^7 Added mob with netId " .. netId .. " owned by self.")
+            local allPeds = GetGamePool('CPed')
+            local self_coords = cache.coords or GetEntityCoords(cache.ped)
+            for i = 1, #allPeds do
+                local ped = allPeds[i]
+                if IsPedAPlayer(ped) then goto continue end
+                if not NetworkGetEntityIsNetworked(ped) then goto continue end
+
+                local netId = NetworkGetNetworkIdFromEntity(ped)
+                if not netId or netId == 0 then goto continue end
+                if knownMobs[netId] == false then goto continue end
+                if CONTROLLED_MOBS[netId] then goto continue end
+
+                local ped_owner = NetworkGetEntityOwner(ped)
+                if ped_owner ~= self_net_id then goto continue end
+
+                local pedCoords = GetEntityCoords(ped)
+                local distSq = (self_coords.x - pedCoords.x)^2 + (self_coords.y - pedCoords.y)^2 + (self_coords.z - pedCoords.z)^2
+                if distSq > maxDistSq then goto continue end
+
+                local mobType = Entity(ped).state.mobType
+                if mobType then
+                    TriggerEvent("nts_mobs:client:internal_add_mob", zone, netId, mobType)
+                    Debug("^1[Thread Helper]^7 Added mob with netId " .. netId .. " owned by self.")
+                    knownMobs[netId] = true
+                else
+                    knownMobs[netId] = false
+                end
+
+                ::continue::
+            end
+            if tickCounter >= 20 then
+                tickCounter = 0
+                for netId, _ in pairs(knownMobs) do
+                    if not NetworkDoesEntityExistWithNetworkId(netId) then
+                        knownMobs[netId] = nil
                     end
-
-                    ::continue::
                 end
             end
 
             Citizen.Wait(250)
         end
+
+        knownMobs = {}
         print("Exiting thread helper for zone " .. zone)
     end)
 end
