@@ -126,7 +126,7 @@ Debug = function (...) if Config.Debug then print(...) end end
 
 if not IsDuplicityVersion() then
     if Config.Debug then
-        local function Target(distance)
+        function Target(distance)
         while true do
             local casterCoords = GetEntityCoords(cache.ped)
             local hit, endCoords, entityHit = RayCastGamePlayCamera(50.0)

@@ -7,7 +7,7 @@ Config = {}
 ---============================================================================
 --- GENERAL SETTINGS
 ---============================================================================
-Config.Debug = false                                     -- Enable debug mode (disable in production)
+Config.Debug = true                                     -- Enable debug mode (disable in production)
 Config.ZoneEmptyTimeout = 60                            -- Seconds to reset zone if empty (per-zone override available)
 Config.ZoneEntryCooldown = 5                            -- Prevent in/out abuse (cooldown in seconds)
 
@@ -26,7 +26,7 @@ Config.Mob = {
             --- Model & Base Stats
             ped = "a_c_deer",                           -- GTA model hash/name
             xp = nil,                                   -- XP reward (nil = disabled for now)
-            speed = 2.2,                                -- Movement speed multiplier
+            speed = 1.4,                                -- Movement speed multiplier
 
             behaviour = "fugitive",                     -- Behaviour type (passive/aggressive/fugitive/neutral)
 

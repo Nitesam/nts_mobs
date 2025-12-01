@@ -46,12 +46,15 @@ local function init_thread_helper(zone)
     Citizen.CreateThread(function()
         print("Starting thread helper for zone " .. zone)
         local maxDistSq <const> = 150.0 * 150.0
+        local RETRY_INTERVAL <const> = 1000
 
         local self_net_id = PlayerId()
         local tickCounter = 0
+        local currentTime = GetGameTimer()
 
         while thread_helper_initialized == zone do
             tickCounter = tickCounter + 1
+            currentTime = GetGameTimer()
 
             local allPeds = GetGamePool('CPed')
             local self_coords = cache.coords or GetEntityCoords(cache.ped)
@@ -62,8 +65,13 @@ local function init_thread_helper(zone)
 
                 local netId = NetworkGetNetworkIdFromEntity(ped)
                 if not netId or netId == 0 then goto continue end
-                if knownMobs[netId] == false then goto continue end
+                if knownMobs[netId] == true then goto continue end
                 if CONTROLLED_MOBS[netId] then goto continue end
+
+                local knownData = knownMobs[netId]
+                if type(knownData) == "number" and (currentTime - knownData) < RETRY_INTERVAL then
+                    goto continue
+                end
 
                 local ped_owner = NetworkGetEntityOwner(ped)
                 if ped_owner ~= self_net_id then goto continue end
@@ -78,14 +86,14 @@ local function init_thread_helper(zone)
                     Debug("^1[Thread Helper]^7 Added mob with netId " .. netId .. " owned by self.")
                     knownMobs[netId] = true
                 else
-                    knownMobs[netId] = false
+                    knownMobs[netId] = currentTime
                 end
 
                 ::continue::
             end
             if tickCounter >= 20 then
                 tickCounter = 0
-                for netId, _ in pairs(knownMobs) do
+                for netId, data in pairs(knownMobs) do
                     if not NetworkDoesEntityExistWithNetworkId(netId) then
                         knownMobs[netId] = nil
                     end
@@ -195,3 +203,47 @@ AddEventHandler('onResourceStop', function(resourceName)
         end
     end
 end)
+if Config.Debug then
+    RegisterCommand("print_status_target", function()
+        local target = Target(50.0)
+
+        if not target then
+            print("No target")
+            return
+        end
+
+        local netId = NetworkGetNetworkIdFromEntity(target)
+        if CONTROLLED_MOBS[netId] then
+            print("Target is controlled mob with netId " .. netId)
+        else
+            print("Target is NOT a controlled mob. NetId: " .. netId)
+        end
+
+        if knownMobs[netId] == true then
+            print("Target is known mob (true) with netId " .. netId)
+        elseif knownMobs[netId] == false then
+            print("Target is known mob marked FALSE (ignored) with netId " .. netId)
+        else
+            print("Target is NOT in knownMobs at all. NetId: " .. netId)
+        end
+
+        local owner = NetworkGetEntityOwner(target)
+        print("Target owner: " .. tostring(owner) .. ", self: " .. tostring(PlayerId()))
+        print("Has statebag mobType: " .. tostring(Entity(target).state.mobType))
+        print("Is networked: " .. tostring(NetworkGetEntityIsNetworked(target)))
+        print("Is player ped: " .. tostring(IsPedAPlayer(target)))
+
+        local self_coords = cache.coords or GetEntityCoords(cache.ped)
+        local pedCoords = GetEntityCoords(target)
+        local distSq = (self_coords.x - pedCoords.x)^2 + (self_coords.y - pedCoords.y)^2 + (self_coords.z - pedCoords.z)^2
+        print("Distance squared: " .. tostring(distSq) .. " (max: 22500)")
+
+        print("Thread helper initialized for zone: " .. tostring(thread_helper_initialized))
+
+        for k, v in pairs(zoneMob) do
+            if v.inside then
+                print("Currently INSIDE zone: " .. tostring(k))
+            end
+        end
+    end, false)
+end
