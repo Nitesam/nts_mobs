@@ -60,6 +60,43 @@ Config.Mob = {
 
             --- Death & Cleanup
             tryBeforeRemoving = 1                       -- Attempts before corpse removal (≈30 sec per try)
+        },
+        ["mountain_lion"] = {
+            --- Model & Base Stats
+            ped = "a_c_mtlion",                         -- GTA model hash/name
+            xp = nil,                                   -- XP reward (nil = disabled for now)
+            speed = 1.2,                                -- Movement speed multiplier
+
+            --- Animation & Movement
+            movClipset = "creatures@mountain_lion@move",-- Movement animation clipset
+            visualRange = 30,                           -- Detection range (meters)
+
+            behaviour = "aggressive",                   -- Behaviour type (passive/aggressive/fugitive/neutral)
+
+            --- Combat Configuration
+            attackRange = 2.0,                          -- Attack range (meters)
+            attackTypes = {                             -- if behaviour is in aggressive or passive, you can define attack types here if ped does not have default attacks
+                --[[["main"] = {
+                    anim = nil,                         -- Set to nil for default game attack
+                    damage = 25,                        -- IF ANIM IS NULL, IT WILL USE GTA Damage per hit
+                    executeTime = 3000,                 -- Milliseconds between attacks
+                    cooldown = 2000                     -- Milliseconds before next attack
+                }]]
+            },
+
+            --- Loot Table
+            loot = {
+                ["mountain_lion_pelt"] = {
+                    min = 1,                            -- Minimum quantity
+                    max = 2,                            -- Maximum quantity
+                    prob = 30                           -- Drop probability (0-100)
+                }
+            },
+
+            hasTrollMode = false,                       -- Shoots RPG if player raises hands
+
+            --- Death & Cleanup
+            tryBeforeRemoving = 2                       -- Attempts before corpse removal (≈30 sec per try)
         }
     },
 
@@ -74,21 +111,22 @@ Config.Mob = {
 
             --- Zone Boundaries (Polygon Points)
             pos = {
-                vector3(291.73077392578, 3443.4208984375, 35.67728805542),
-                vector3(984.38073730469, 3527.0632324219, 32.861618041992),
-                vector3(1118.4897460938, 3270.9006347656, 37.023284912109),
-                vector3(226.31533813477, 3154.4365234375, 41.226364135742)
+                vector3(287.6848449707, 3203.8896484375, 42.530754089355),
+                vector3(302.75173950195, 3259.5988769531, 44.691047668457),
+                vector3(358.23547363281, 3231.1918945312, 43.239730834961),
+                vector3(323.02163696289, 3190.8505859375, 49.12760925293)
             },
 
             --- Spawning Configuration
-            mobMax = 20,                                -- Maximum mobs in zone
+            mobMax = 3,                                 -- Maximum mobs in zone
             newSpawnTime = 15,                          -- Spawn interval (seconds)
-            spawnBorderDistance = 25,                   -- Min distance from polygon edge (meters)
+            spawnBorderDistance = 3,                    -- Min distance from polygon edge (meters)
             forcedMinHeight =  98.727104187012,         -- Force minimum Z height (nil = auto)
 
             --- Mob Spawn Weights
             mobs = {
-                ["deer"] = 100                          -- Higher = higher spawn chance
+                ["deer"] = 50,                          -- Higher = higher spawn chance
+                ["mountain_lion"] = 25
             },
 
             --- Soil Type Restrictions (optional)

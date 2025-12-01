@@ -62,10 +62,10 @@ local function spawnMob(index, mobType, try, spawnpoint_id)
             Entity(spawnedPed).state.mobType = mobType
             Entity(spawnedPed).state.spawnpoint_id = spawnpoint_id
 
-            if ZONE_TAB[index].mob[tempNet].owner ~= -1 then
+            --[[if ZONE_TAB[index].mob[tempNet].owner ~= -1 then
                 TriggerClientEvent("nts_mobs:client:control_mob", ZONE_TAB[index].mob[tempNet].owner, index, tempNet, mobType)
                 print("Mob " .. tempNet .. " spawned on spawn number " .. spawnpoint_id .. " and assigned to owner " .. ZONE_TAB[index].mob[tempNet].owner .. ".")
-            end
+            end]]
         else
             if try < 10 then
                 spawnMob(index, mobType, try + 1, spawnpoint_id)
@@ -158,12 +158,12 @@ local function startZoneThread(index)
                 if DoesEntityExist(v.ped) then
                     local owner = NetworkGetEntityOwner(v.ped)
 
-                    if owner ~= v.owner then
+                    --[[if owner ~= v.owner then
                         Debug("Mob " .. k .. " Owner Changed from " .. v.owner .. " to " .. owner .. ".")
 
                         ZONE_TAB[index].mob[k].owner = owner
                         TriggerClientEvent("nts_mobs:client:control_mob", owner, index, k, v.type)
-                    end
+                    end]]
 
                     if owner ~= -1 and GetEntityHealth(v.ped) <= 0 then
                         ZONE_TAB[index].mob[k].diedTime += 1
@@ -279,7 +279,7 @@ AddEventHandler("playerDropped", function(reason)
     end
 end)
 
-RegisterServerEvent("nts_mobs:lostOwnership")
+--[[RegisterServerEvent("nts_mobs:lostOwnership")
 AddEventHandler("nts_mobs:lostOwnership", function(zoneIndex, netId)
     local mob = ZONE_TAB[zoneIndex] and ZONE_TAB[zoneIndex].mob[netId]
     if mob then
@@ -287,7 +287,7 @@ AddEventHandler("nts_mobs:lostOwnership", function(zoneIndex, netId)
         TriggerClientEvent("nts_mobs:client:control_mob", mob.owner, zoneIndex, netId, mob.type)
         Debug(source .. " told me that he lost the ownership, so i sent the mob task to the new owner [".. mob.owner .."]")
     end
-end)
+end)]]
 
 RegisterNetEvent("nts_mobs:server:playerDamage", function(target, net_mob, damage)
     local user_ped = GetPlayerPed(target)

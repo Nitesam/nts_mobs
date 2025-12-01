@@ -111,14 +111,14 @@ function DebugPedTask(ped)
     for k,v in pairs(eTaskTypeIndex) do
         if GetIsTaskActive(ped, k) then
             tCount += 1
-            print("Executing: [".. k .."] - " .. v)
+            print("^1Executing: [".. k .."] - " .. v)
         end
     end
 
     if tCount == 0 then
-        print("No Task Executed by " .. ped)
+        print("No Task Executed by " .. ped .. "^7")
     else
-        print("Total Task Executed: " .. tCount)
+        print("Total Task Executed: " .. tCount .. "^7")
     end
 end
 

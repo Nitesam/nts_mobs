@@ -35,6 +35,42 @@ local function makeBlipForZone(index, zoneConfig)
     return blip
 end
 
+local thread_helper_initialized = 0
+local function init_thread_helper(zone)
+    if thread_helper_initialized ~= 0 then return end
+    thread_helper_initialized = zone
+
+    local zone = zone
+    Citizen.CreateThread(function()
+        print("Starting thread helper for zone " .. zone)
+        local self_net_id = PlayerId()
+        while thread_helper_initialized == zone do
+            local self_coords = GetEntityCoords(cache.ped)
+            local npcs = lib.getNearbyPeds(self_coords, 300.0)
+            for k,v in pairs(npcs) do
+                local mobType = Entity(v.ped).state.mobType
+                if mobType and not IsPedAPlayer(v.ped) then
+                    local netId = NetworkGetNetworkIdFromEntity(v.ped)
+                    if not netId or netId == 0 then goto continue end
+                    if CONTROLLED_MOBS[netId] then goto continue end
+
+                    local ped_owner = NetworkGetEntityOwner(v.ped) or -1
+                    if ped_owner == self_net_id then
+                        TriggerEvent("nts_mobs:client:internal_add_mob", zone, netId, mobType)
+                        Debug("^1[Thread Helper]^7 Added mob with netId " .. netId .. " owned by self.")
+                    end
+
+                    ::continue::
+                end
+            end
+
+            Citizen.Wait(250)
+        end
+        print("Exiting thread helper for zone " .. zone)
+    end)
+end
+
+
 local function initialize()
     if not init then
         init = true
@@ -56,11 +92,14 @@ local function initialize()
                     zoneMob[k].inside = true
                     TriggerServerEvent("nts_mobs:server:playerEnterZone", k)
                     Debug("Entered zone " .. k)
+
+                    init_thread_helper(k)
                 end,
                 onExit = function(self)
                     zoneMob[k].inside = false
                     TriggerServerEvent("nts_mobs:server:playerExitZone", k)
                     Debug("Exited zone " .. k)
+                    thread_helper_initialized = 0
                 end
             })
 
