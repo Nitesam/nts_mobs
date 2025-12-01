@@ -198,6 +198,36 @@ local function isMobWandering(mob)
     return GetIsTaskActive(mob, TASK_WANDER) or GetIsTaskActive(mob, TASK_GO_TO_COORD_ANY_MEANS)
 end
 
+--- Verifica se il mob è bloccato (non si muove da troppo tempo)
+---@param mob number Entity handle
+---@param mobData table Dati del mob
+---@param netId number Network ID
+---@return boolean isStuck
+local function isMobStuck(mob, mobData, netId)
+    local currentPos = GetEntityCoords(mob)
+    local currentTime = GetGameTimer()
+
+    if not mobData.lastKnownPos then
+        mobData.lastKnownPos = currentPos
+        mobData.lastPosCheckTime = currentTime
+        return false
+    end
+    if currentTime - mobData.lastPosCheckTime < 3000 then
+        return false
+    end
+
+    local distance = #(currentPos - mobData.lastKnownPos)
+    mobData.lastKnownPos = currentPos
+    mobData.lastPosCheckTime = currentTime
+
+    if distance < 1.0 and mobData.state == MOB_STATE.WANDERING then
+        DebugMob(netId, "Mob appears stuck (moved only", string.format("%.2f", distance), "units in 3s)")
+        return true
+    end
+    
+    return false
+end
+
 --- Pulisce i task e prepara il mob per un nuovo comportamento
 ---@param mob number Entity handle
 ---@param netId number Network ID for debug
@@ -432,9 +462,10 @@ local function handleEscapeFromPlayer(mob, nearPlayer, mobConfig, mobData, netId
         if mobConfig.speed > 1.0 then
             ForcePedMotionState(mob, MOTION_STATE_RUNNING, false, 0, 0)
         end
-
-        TaskSmartFleePed(mob, nearPlayerPed, 100.0, -1, false, false)
-        DebugMob(netId, "Fleeing from player!")
+        local distance_to_flee = mobConfig.escapeDistanceMax?.min and mobConfig.escapeDistanceMax?.max and
+            math.random(mobConfig.escapeDistanceMax.min, mobConfig.escapeDistanceMax.max) or 100.0
+        TaskSmartFleePed(mob, nearPlayerPed, distance_to_flee, 15000, false, false)
+        DebugMob(netId, "Fleeing from player! (15s duration)")
     end
 
     local oldState = mobData.state
@@ -466,6 +497,13 @@ end
 ---@param mobData table
 ---@param netId number
 local function handleWanderingBehavior(mob, zone, mobData, netId)
+    if isMobStuck(mob, mobData, netId) then
+        DebugMob(netId, "Mob is stuck, clearing tasks and generating new destination")
+        clearMobTasks(mob, netId)
+        generateCoordsAndGo(mob, zone, mobData, netId)
+        return
+    end
+    
     if isMobWandering(mob) then
         return
     end
@@ -592,12 +630,29 @@ local function processSingleMob(netId, mobData, currentTime)
         end
         mobData.tickDelay = 1000
     else
+        if mobData.state == MOB_STATE.FLEEING and GetIsTaskActive(mob, TASK_SMART_FLEE) then
+            if isMobStuck(mob, mobData, netId) then
+                DebugMob(netId, "Fleeing mob is stuck, stopping flee and returning to idle")
+                clearMobTasks(mob, netId)
+                local oldState = mobData.state
+                mobData.state = MOB_STATE.IDLE
+                DebugStateChange(netId, oldState, mobData.state)
+            else
+                if not mobData.lastFleeDebugTime or (currentTime - mobData.lastFleeDebugTime) > 5000 then
+                    DebugMob(netId, "Still fleeing (TASK_SMART_FLEE active)")
+                    mobData.lastFleeDebugTime = currentTime
+                end
+                mobData.tickDelay = 500
+                return
+            end
+        end
+
         if mobData.state == MOB_STATE.WANDERING then
             handleWanderingBehavior(mob, mobData.zone, mobData, netId)
         else
             handleIdleBehavior(mob, mobData.zone, mobData, netId)
         end
-        mobData.tickDelay = 1000 
+        mobData.tickDelay = 1000
     end
 end
 
@@ -692,7 +747,10 @@ local function addControlledMob(zone, netId, mobType)
         tickDelay = 500,
         attackCooldown = 0,
         pendingAttack = nil,
-        lastStatebagUpdate = 0
+        lastStatebagUpdate = 0,
+        lastKnownPos = nil,
+        lastPosCheckTime = 0,
+        lastFleeDebugTime = 0
     }
 
     Debug("Added mob to control: " .. netId .. " | Total: " .. getControlledMobCount())
