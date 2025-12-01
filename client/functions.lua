@@ -22,13 +22,23 @@ end
 function GetRandomPoints(index, points, count)
     local triangles, borderDistance, polygonPoints = getZoneTriangles(index, points)
     local generatedPoints = {}
-    local maxAttempts = 20
-    for i = 1, count do
-        local point
-        local attempts = 0
+    local maxBorderAttempts = 20
+    local maxMaterialAttempts = 10
+    local zoneConfig = Config.Mob.Zone[index]
+    local hasWhitelist = zoneConfig.whitelistedSoilTypes and next(zoneConfig.whitelistedSoilTypes)
 
-        while attempts < maxAttempts do
-            attempts = attempts + 1
+    local pointsNeeded = count
+    local totalAttempts = 0
+    local maxTotalAttempts = count * (maxBorderAttempts + maxMaterialAttempts)
+
+    while #generatedPoints < pointsNeeded and totalAttempts < maxTotalAttempts do
+        totalAttempts = totalAttempts + 1
+
+        local point
+        local borderAttempts = 0
+
+        while borderAttempts < maxBorderAttempts do
+            borderAttempts = borderAttempts + 1
             point = getRandomPointInPolygon(triangles)
 
             if not isPointNearPolygonBorder(point.x, point.y, polygonPoints, borderDistance) then
@@ -36,28 +46,70 @@ function GetRandomPoints(index, points, count)
             end
         end
 
-        if attempts >= maxAttempts then
-            Debug("Warning: Could not find point far from border after " .. maxAttempts .. " attempts for zone " .. index)
+        if borderAttempts >= maxBorderAttempts then
+            Debug("Warning: Could not find point far from border after " .. maxBorderAttempts .. " attempts for zone " .. index)
+            goto continue
         end
 
-        local retval, groundZ = GetGroundZFor_3dCoord(point.x, point.y, point.z + 50.0, true)
-        if retval then 
-            point = vec3(point.x, point.y, groundZ + 1.0)
+        local retval, groundZ = GetGroundZFor_3dCoord(point.x, point.y, point.z + 100.0, true)
+        if not retval then 
+            Debug("Warning: GetGroundZFor_3dCoord failed at " .. point.x .. ", " .. point.y)
+            goto continue
         end
 
-        if Config.Mob.Zone[index].whitelistedSoilTypes and next(Config.Mob.Zone[index].whitelistedSoilTypes) then
-            local hit, _, __, surfaceNormal, material = lib.raycast.fromCoords(vec3(point.x, point.y, point.z + 30.0), vec3(point.x, point.y, point.z - 1.0), 1, 7)
+        point = vec3(point.x, point.y, groundZ + 1.0)
 
-            if hit and Config.Mob.Zone[index].whitelistedSoilTypes[material] then
-                generatedPoints[#generatedPoints + 1] = point
-            else
-                i -= 1 -- Retry this iteration (little bit scary, i'd like to add a maxAttempts!)
+        if hasWhitelist then
+            local startZ = point.z + 5.0
+            local endZ = point.z - 3.0
+            local hit, _, _, _, material = lib.raycast.fromCoords(
+                vec3(point.x, point.y, startZ),
+                vec3(point.x, point.y, endZ),
+                1,
+                0
+            )
+
+            if Config.Debug then
+                local debugPoint = point
+                local debugMaterial = material
+                Citizen.CreateThread(function()
+                    local endTime = GetGameTimer() + 30000
+                    while GetGameTimer() < endTime do
+                        DrawLine(debugPoint.x, debugPoint.y, debugPoint.z + 5.0, debugPoint.x, debugPoint.y, debugPoint.z - 3.0, 255, 0, 0, 150)
+                        qbx.drawText3d({
+                            text = "Material: " .. tostring(debugMaterial),
+                            coords = vec3(debugPoint.x, debugPoint.y, debugPoint.z + 1.0),
+                            scale = 0.35,
+                            font = 4,
+                            color = vec4(255, 255, 255, 200),
+                            disableDrawRect = false,
+                            enableDropShadow = true,
+                            enableOutline = true
+                        })
+                        Wait(0)
+                    end
+                end)
             end
-        else
-            generatedPoints[#generatedPoints + 1] = point
+
+            if not hit or not material or material == 0 then
+                Debug("Warning: Raycast failed or material is 0 at " .. point.x .. ", " .. point.y)
+                goto continue
+            end
+
+            if not zoneConfig.whitelistedSoilTypes[material] then
+                Debug("Warning: Material " .. tostring(material) .. " not whitelisted at " .. point.x .. ", " .. point.y)
+                goto continue
+            end
         end
 
-        if i % 10 == 0 then Wait(0) end
+        generatedPoints[#generatedPoints + 1] = point
+        if #generatedPoints % 5 == 0 then Wait(0) end
+
+        ::continue::
+    end
+
+    if #generatedPoints < pointsNeeded then
+        Debug("Warning: Only found " .. #generatedPoints .. "/" .. pointsNeeded .. " valid points for zone " .. index .. " after " .. totalAttempts .. " attempts")
     end
 
     return generatedPoints
@@ -130,27 +182,4 @@ function RayCastGamePlayCamera(distance)
     )
     local retval, hit, endCoords, surfaceNormal, entityHit = GetShapeTestResult(shapeTest)
     return hit, endCoords, entityHit
-end
-
-if not Config.Debug then return end
-
--- Thread di rendering
-function ThreadMarkingPoints(points)
-    Citizen.CreateThread(function()
-        while true do
-            for _, point in ipairs(points) do
-                DrawMarker(
-                    2,
-                    point.x, point.y, point.z + 10.0,
-                    0.0, 0.0, 0.0,
-                    0.0, 0.0, 0.0,
-                    2.3, 2.3, 2.3,
-                    0, 255, 0, 150,
-                    false, false, 2,
-                    false, nil, nil, false
-                )
-            end
-            Wait(0)
-        end
-    end)
 end

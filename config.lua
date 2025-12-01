@@ -7,7 +7,7 @@ Config = {}
 ---============================================================================
 --- GENERAL SETTINGS
 ---============================================================================
-Config.Debug = false                                    -- Enable debug mode (disable in production)
+Config.Debug = true                                     -- Enable debug mode (disable in production)
 Config.ZoneEmptyTimeout = 60                            -- Seconds to reset zone if empty (per-zone override available)
 Config.ZoneEntryCooldown = 5                            -- Prevent in/out abuse (cooldown in seconds)
 
@@ -134,9 +134,10 @@ Config.Mob = {
             },
 
             --- Soil Type Restrictions (optional)
-            --whitelistedSoilTypes = {
-            --    [-1595148316] = true                   -- Allowed soil type hashes
-            --}
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
         }
     }
 }
