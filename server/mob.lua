@@ -4,18 +4,44 @@ local ZONE_EMPTY_TIMEOUT = Config.ZoneEmptyTimeout or 60
 local ZONE_ENTRY_COOLDOWN = Config.ZoneEntryCooldown or 5
 local playerZoneCooldown = {}
 
+
+local spawnQueue = {}               -- { [zoneIndex] = { { mobType, spawnpoint_id, coords, retryCount }, ... } }
+local SPAWN_RETRY_INTERVAL = 1000   -- ms
+local MAX_SPAWN_RETRIES = 60        -- dopo 60 tentativi (60 secondi) abbandona
+
+local respawnQueue = {}             -- { [zoneIndex] = { { spawnpoint_id, respawnAt }, ... } }
+
 for k, v in pairs(Config.Mob.Zone) do
     ZONE_TAB[k] = {
         pos = v.pos,
-        mob = {},
+        entities = {},
         active = 0,
         initialized = false,
         running = false,
         playersInside = {},
         lastPlayerLeft = 0,
         spawnPoints = {},
-        currentSpawnpointCounter = 0
+        currentSpawnpointCounter = 0,
+        pendingSpawns = 0
     }
+    spawnQueue[k] = {}
+    respawnQueue[k] = {}
+end
+
+local function CreateServerPed(model, _x, _y, _z, _h, _isRandomPed)
+    local ped = CreatePed(1, model, _x, _y, _z, _h, true, true)
+    local retry = 0
+    while not DoesEntityExist(ped) and retry < 50 do
+        retry = retry + 1
+        Citizen.Wait(10)
+    end
+    
+    if not DoesEntityExist(ped) then
+        return nil
+    end
+    
+    SetPedRandomComponentVariation(ped, _isRandomPed)
+    return ped
 end
 
 local function requestZoneSpawnPoints(index, requestingPlayer)
@@ -35,9 +61,216 @@ local function getRandomSpawnCoords(index, spawnpoint_id)
     return zone.spawnPoints[spawnpoint_id]
 end
 
+--- Verifica se un ped spawnato ha un network ID valido (client in range)
+---@param ped number
+---@return boolean, number|nil netId
+local function validateSpawnedPed(ped)
+    if not ped or not DoesEntityExist(ped) then
+        return false, nil
+    end
+    
+    local netId = NetworkGetNetworkIdFromEntity(ped)
+    if not netId or netId == 0 then
+        return false, nil
+    end
+    
+    return true, netId
+end
+
+--- Aggiunge un mob alla coda di spawn
+---@param zoneIndex string
+---@param mobType string
+---@param spawnpoint_id number
+---@param coords vector3
+local function queueMobSpawn(zoneIndex, mobType, spawnpoint_id, coords)
+    table.insert(spawnQueue[zoneIndex], {
+        mobType = mobType,
+        spawnpoint_id = spawnpoint_id,
+        coords = coords,
+        retryCount = 0,
+        queuedAt = os.time()
+    })
+    ZONE_TAB[zoneIndex].pendingSpawns = ZONE_TAB[zoneIndex].pendingSpawns + 1
+    Debug(string.format("^3[QUEUE] Mob queued for zone %s | Type: %s | Spawnpoint: %d | Queue size: %d^7", 
+        zoneIndex, mobType, spawnpoint_id, #spawnQueue[zoneIndex]))
+end
+
+--- Rimuove un elemento dalla coda
+---@param zoneIndex string
+---@param queueIndex number
+local function removeFromQueue(zoneIndex, queueIndex)
+    table.remove(spawnQueue[zoneIndex], queueIndex)
+    ZONE_TAB[zoneIndex].pendingSpawns = math.max(0, ZONE_TAB[zoneIndex].pendingSpawns - 1)
+end
+
+--- Tenta di spawnare un mob dalla coda
+---@param zoneIndex string
+---@param queueIndex number
+---@param queuedMob table
+---@return boolean success
+local function trySpawnFromQueue(zoneIndex, queueIndex, queuedMob)
+    local mobConfig = Config.Mob.MobType[queuedMob.mobType]
+    if not mobConfig then
+        Debug("^1[QUEUE ERROR] Invalid mob type: " .. tostring(queuedMob.mobType) .. "^7")
+        removeFromQueue(zoneIndex, queueIndex)
+        return false
+    end
+    
+    local coords = queuedMob.coords
+    local spawnedPed = CreateServerPed(mobConfig.ped, coords.x, coords.y, coords.z, 0.0, true)
+    
+    if not spawnedPed then
+        queuedMob.retryCount = queuedMob.retryCount + 1
+        Debug(string.format("^3[QUEUE] Spawn failed (no ped), retry %d/%d^7", queuedMob.retryCount, MAX_SPAWN_RETRIES))
+        return false
+    end
+    
+
+    local isValid, netId = validateSpawnedPed(spawnedPed)
+    if not isValid then
+        DeleteEntity(spawnedPed)
+        queuedMob.retryCount = queuedMob.retryCount + 1
+        
+        if queuedMob.retryCount % 10 == 0 then
+            Debug(string.format("^3[QUEUE] No client in range for spawn, retry %d/%d^7", queuedMob.retryCount, MAX_SPAWN_RETRIES))
+        end
+        
+        return false
+    end
+    
+    FreezeEntityPosition(spawnedPed, true)
+    
+    ZONE_TAB[zoneIndex].entities[netId] = {
+        ped = spawnedPed,
+        owner = NetworkGetEntityOwner(spawnedPed) or -1,
+        type = queuedMob.mobType,
+        diedTime = 0,
+        spawnpoint_id = queuedMob.spawnpoint_id,
+        loot = GenerateLootForMob(mobConfig),
+        lootable = false,
+        spawnCoords = coords
+    }
+
+    Entity(spawnedPed).state.lootable = false
+    Entity(spawnedPed).state.mobType = queuedMob.mobType
+    Entity(spawnedPed).state.spawnpoint_id = queuedMob.spawnpoint_id
+    Entity(spawnedPed).state.zoneIndex = zoneIndex
+
+    ZONE_TAB[zoneIndex].active = ZONE_TAB[zoneIndex].active + 1
+    removeFromQueue(zoneIndex, queueIndex)
+    
+    Debug(string.format("^2[QUEUE SUCCESS] Mob spawned from queue | NetId: %d | Zone: %s | Retries: %d^7", 
+        netId, zoneIndex, queuedMob.retryCount))
+    
+    return true
+end
+
+--- Aggiunge un respawn alla coda
+---@param zoneIndex string
+---@param spawnpoint_id number
+local function queueRespawn(zoneIndex, spawnpoint_id)
+    local respawnDelay = Config.Mob.Zone[zoneIndex].newSpawnTime or 30
+    local respawnAt = os.time() + respawnDelay
+    
+    table.insert(respawnQueue[zoneIndex], {
+        spawnpoint_id = spawnpoint_id,
+        respawnAt = respawnAt
+    })
+    
+    Debug(string.format("^3[RESPAWN QUEUE] Added respawn for zone %s | Spawnpoint: %d | In: %ds^7", 
+        zoneIndex, spawnpoint_id, respawnDelay))
+end
+
+--- Thread per processare la coda di respawn di una zona
+---@param zoneIndex string
+local function startRespawnQueueThread(zoneIndex)
+    Citizen.CreateThread(function()
+        Debug("^2[RESPAWN QUEUE] Starting respawn queue thread for zone " .. zoneIndex .. "^7")
+        
+        while ZONE_TAB[zoneIndex].running do
+            local queue = respawnQueue[zoneIndex]
+            local now = os.time()
+            
+            if #queue > 0 then
+                local i = 1
+                while i <= #queue do
+                    local item = queue[i]
+                    
+                    if now >= item.respawnAt then
+                        Debug(string.format("^2[RESPAWN QUEUE] Processing respawn for zone %s | Spawnpoint: %d^7", 
+                            zoneIndex, item.spawnpoint_id))
+                        extractMob(zoneIndex, item.spawnpoint_id)
+                        table.remove(queue, i)
+                    else
+                        i = i + 1
+                    end
+                end
+            end
+            
+            Citizen.Wait(1000)
+        end
+        
+        local remaining = #respawnQueue[zoneIndex]
+        if remaining > 0 then
+            Debug(string.format("^3[RESPAWN QUEUE] Zone %s stopped, clearing %d pending respawns^7", zoneIndex, remaining))
+            respawnQueue[zoneIndex] = {}
+        end
+        
+        Debug("^3[RESPAWN QUEUE] Respawn queue thread stopped for zone " .. zoneIndex .. "^7")
+    end)
+end
+
+--- Thread per processare la coda di spawn di una zona
+---@param zoneIndex string
+local function startSpawnQueueThread(zoneIndex)
+    Citizen.CreateThread(function()
+        Debug("^2[QUEUE] Starting spawn queue thread for zone " .. zoneIndex .. "^7")
+        
+        while ZONE_TAB[zoneIndex].running do
+            local queue = spawnQueue[zoneIndex]
+            
+            if #queue > 0 then
+                local i = 1
+                while i <= #queue do
+                    local queuedMob = queue[i]
+                    
+                    if queuedMob.retryCount >= MAX_SPAWN_RETRIES then
+                        Debug(string.format("^1[QUEUE] Mob spawn abandoned after %d retries | Zone: %s^7", 
+                            queuedMob.retryCount, zoneIndex))
+                        removeFromQueue(zoneIndex, i)
+                    else
+                        local success = trySpawnFromQueue(zoneIndex, i, queuedMob)
+                        if success then
+                        else
+                            i = i + 1
+                        end
+                    end
+
+                    Citizen.Wait(50)
+                end
+            end
+            
+            Citizen.Wait(SPAWN_RETRY_INTERVAL)
+        end
+        
+        local remaining = #spawnQueue[zoneIndex]
+        if remaining > 0 then
+            Debug(string.format("^3[QUEUE] Zone %s stopped, clearing %d pending spawns^7", zoneIndex, remaining))
+            spawnQueue[zoneIndex] = {}
+            ZONE_TAB[zoneIndex].pendingSpawns = 0
+        end
+        
+        Debug("^3[QUEUE] Spawn queue thread stopped for zone " .. zoneIndex .. "^7")
+    end)
+end
+
+-- Nuova versione di spawnMob che usa la coda
 local function spawnMob(index, mobType, try, spawnpoint_id)
     if not spawnpoint_id then
         ZONE_TAB[index].currentSpawnpointCounter = (ZONE_TAB[index].currentSpawnpointCounter + 1) % #ZONE_TAB[index].spawnPoints
+        if ZONE_TAB[index].currentSpawnpointCounter == 0 then
+            ZONE_TAB[index].currentSpawnpointCounter = 1
+        end
         spawnpoint_id = ZONE_TAB[index].currentSpawnpointCounter
     end
 
@@ -47,37 +280,7 @@ local function spawnMob(index, mobType, try, spawnpoint_id)
         return
     end
 
-    Citizen.CreateThread(function()
-        local mobConfig = Config.Mob.MobType[mobType]
-        local spawnedPed = CreatePed(2, mobConfig.ped, coords.x, coords.y, coords.z, 0.0, true, false)
-        Citizen.Wait(100)
-
-        if DoesEntityExist(spawnedPed) then
-            FreezeEntityPosition(spawnedPed, true)
-            -- voglio fare un tentativo, credo che il motivo per ui i ped muoiano subito è perchè cadono dalla mappa,
-            -- li faccio sbloccare al client quando è vicino.
-
-            local tempNet = NetworkGetNetworkIdFromEntity(spawnedPed)
-            ZONE_TAB[index].mob[tempNet] = {
-                ped = spawnedPed,
-                owner = NetworkGetEntityOwner(spawnedPed) or -1,
-                type = mobType,
-                diedTime = 0,
-                spawnpoint_id = spawnpoint_id,
-                loot = GenerateLootForMob(mobConfig),
-                lootable = false,
-                spawnCoords = coords
-            }
-
-            Entity(spawnedPed).state.lootable = false
-            Entity(spawnedPed).state.mobType = mobType
-            Entity(spawnedPed).state.spawnpoint_id = spawnpoint_id
-
-            ZONE_TAB[index].active += 1
-        else
-            if try < 10 then spawnMob(index, mobType, try + 1, spawnpoint_id) end
-        end
-    end)
+    queueMobSpawn(index, mobType, spawnpoint_id, coords)
 end
 
 local function extractMob(index, spawnpoint_id)
@@ -98,37 +301,41 @@ end
 local function clearZone(index)
     Debug("^1[nts_mobs] - ^0Clearing zone " .. index)
 
-    for netId, mobData in pairs(ZONE_TAB[index].mob) do
+    for netId, mobData in pairs(ZONE_TAB[index].entities) do
         if DoesEntityExist(mobData.ped) then
             DeleteEntity(mobData.ped)
         end
     end
 
-    ZONE_TAB[index].mob = {}
+    ZONE_TAB[index].entities = {}
     ZONE_TAB[index].active = 0
     ZONE_TAB[index].running = false
     ZONE_TAB[index].initialized = false
     ZONE_TAB[index].spawnPoints = {}
+    ZONE_TAB[index].pendingSpawns = 0
+    spawnQueue[index] = {}
+    respawnQueue[index] = {}
 
     Debug("^1[nts_mobs] - ^0Zone " .. index .. " cleared and closed.")
 end
 
 -- @param zone: string; netId: int; giveDrop: int (should be source id of player receiver)
-local function removeMob(zone, netId, giveDrop)
-    local mobData = ZONE_TAB[zone].mob[netId]
+local function removeMob(zone, netId, deathCoords)
+    local mobData = ZONE_TAB[zone].entities[netId]
     if not mobData then return end
 
     local saved_spawnpoint = mobData.spawnpoint_id
-    ZONE_TAB[zone].mob[netId] = nil
+    ZONE_TAB[zone].entities[netId] = nil
     ZONE_TAB[zone].active -= 1
 
+    if deathCoords then
+        for k,v in pairs(ZONE_TAB[zone].playersInside) do
+            TriggerClientEvent("nts_mobs:client:remove_mob", k, zone, netId, deathCoords)
+        end
+    end
+
     if ZONE_TAB[zone].running then
-        SetTimeout(Config.Mob.Zone[zone].newSpawnTime * 1000, function()
-            if ZONE_TAB[zone].running then
-                Debug("New Mob Spawning Try in " .. zone .. " has been requested because timeout of removed one expired.")
-                extractMob(zone, saved_spawnpoint)
-            end
-        end)
+        queueRespawn(zone, saved_spawnpoint)
     end
 end
 
@@ -137,6 +344,9 @@ local function startZoneThread(index)
 
     ZONE_TAB[index].running = true
     Debug("^2[nts_mobs] - ^0Starting thread for zone " .. index)
+
+    startSpawnQueueThread(index)
+    startRespawnQueueThread(index)
 
     Citizen.CreateThread(function()
         while ZONE_TAB[index].running do
@@ -153,15 +363,20 @@ local function startZoneThread(index)
                 end
             end
 
-            for k, mob in pairs(ZONE_TAB[index].mob) do
+            if Config.Debug and #spawnQueue[index] > 0 then
+                Debug(string.format("^3[ZONE %s] Active: %d | Queued: %d^7", index, ZONE_TAB[index].active, #spawnQueue[index]))
+            end
+
+            for k, mob in pairs(ZONE_TAB[index].entities) do
                 if DoesEntityExist(mob.ped) then
                     local owner = NetworkGetEntityOwner(mob.ped)
                     local ownerDist = 999999
-                    
+                    local mob_coords = GetEntityCoords(mob.ped)
+
                     if owner ~= -1 then
                         local ownerPed = GetPlayerPed(owner)
                         if ownerPed and DoesEntityExist(ownerPed) then
-                            ownerDist = #(GetEntityCoords(mob.ped) - GetEntityCoords(ownerPed))
+                            ownerDist = #(mob_coords - GetEntityCoords(ownerPed))
                         end
                     end
                     
@@ -170,7 +385,7 @@ local function startZoneThread(index)
                             mob.diedTime += 1
 
                             if mob.diedTime >= Config.Mob.MobType[mob.type].tryBeforeRemoving then
-                                removeMob(index, k, nil)
+                                removeMob(index, k, mob_coords)
                             else
                                 if not mob.lootable then
                                     Entity(mob.ped).state.lootable = true
@@ -288,7 +503,7 @@ end)
 
 --[[RegisterServerEvent("nts_mobs:lostOwnership")
 AddEventHandler("nts_mobs:lostOwnership", function(zoneIndex, netId)
-    local mob = ZONE_TAB[zoneIndex] and ZONE_TAB[zoneIndex].mob[netId]
+    local mob = ZONE_TAB[zoneIndex] and ZONE_TAB[zoneIndex].entities[netId]
     if mob then
         mob.owner = NetworkGetEntityOwner(mob.ped)
         TriggerClientEvent("nts_mobs:client:control_mob", mob.owner, zoneIndex, netId, mob.type)
@@ -308,14 +523,43 @@ RegisterNetEvent("nts_mobs:server:playerDamage", function(target, net_mob, damag
     end
 end)
 
-AddEventHandler("onResourceStop", function(resourceName)
-    if GetCurrentResourceName() == resourceName then
-        for k, v in pairs(ZONE_TAB) do
-            for _, b in pairs(v.mob) do
-                if DoesEntityExist(b.ped) then
-                    DeleteEntity(b.ped)
-                end
+AddEventHandler('onResourceStop', function(resourceName)
+    if (GetCurrentResourceName() ~= resourceName) then
+        return
+    end
+
+    for k, v in pairs(ZONE_TAB) do
+        for _, b in pairs(v.entities) do
+            if DoesEntityExist(b.ped) then
+                DeleteEntity(b.ped)
+                print("Deleting mob " .. tostring(b.ped) .. " from zone " .. k)
             end
         end
     end
+    print("^1[nts_mobs] - ^0All mobs deleted on resource stop.")
 end)
+
+if not Config.Debug then return end
+for k,v in pairs(GetAllPeds()) do -- DA RIMUOVERE IN PRODUCTION!!!!!!!!!!!!!!!!!!!!
+    DeleteEntity(v)
+end
+
+RegisterCommand("print_mobs_exists", function(source, args, rawCommand)
+    if source > 0 then return end
+    print("---- MOB SPAWNED ENTITIES ----")
+    for zoneIndex, zone in pairs(ZONE_TAB) do
+        print("Zone " .. zoneIndex .. ":")
+        for netId, mobData in pairs(zone.entities) do
+            if DoesEntityExist(mobData.ped) then
+                local owner = NetworkGetEntityOwner(mobData.ped)
+                local owner_ped = GetPlayerPed(owner)
+
+                print("  Mob NetId: " .. netId .. " | Ped: " .. tostring(mobData.ped) .. " | Type: " .. mobData.type .. owner ~= -1 and (" | Distance from owner: " .. 
+                    #(GetEntityCoords(mobData.ped) - GetEntityCoords(owner_ped))))
+            else
+                print("  Mob NetId: " .. netId .. " | Ped: INVALID ENTITY | Type: " .. mobData.type)
+            end
+        end
+    end
+    print("---- END OF LIST ----")
+end, false)

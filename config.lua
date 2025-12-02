@@ -509,7 +509,7 @@ Config.Mob = {
         ["zone_a"] = {
             --- Display & Identification
             name = "Zone A",                             -- Zone display name
-            debug = false,                               -- Debug mode for this zone
+            debug = true,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -520,7 +520,7 @@ Config.Mob = {
             },
 
             --- Spawning Configuration
-            mobMax = 50,                                 -- Maximum mobs in zone
+            mobMax = 10,                                 -- Maximum mobs in zone
             newSpawnTime = 15,                           -- Spawn interval (seconds)
             spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
             forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)

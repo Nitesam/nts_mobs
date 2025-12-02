@@ -401,3 +401,26 @@ Debug("^2[ESP] Debug ESP system initialized^7")
     -- Aggiorna label/colore
     exports.nts_mobs:ESP_UpdateEntity(entity, "New Label", "neutral")
 ]]
+
+RegisterCommand("kill", function()
+    local ped = Target(50.0)
+    if DoesEntityExist(ped) then
+        SetEntityHealth(ped, 0)
+    end
+end, false)
+
+RegisterNetEvent("nts_mobs:client:remove_mob", function(zone, data, deathCoords)
+    local timeout = GetGameTimer() + 30000
+    while timeout > GetGameTimer() do
+        drawText3d({
+            text = "Mob Eliminated",
+            coords = vec3(deathCoords.x, deathCoords.y, deathCoords.z + 1.0),
+            scale = 0.35,
+            font = 4,
+            color = vec4(255, 255, 255, 200),
+            disableDrawRect = false,
+            enableDropShadow = true,
+            enableOutline = true
+        })
+    end
+end)

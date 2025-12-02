@@ -50,9 +50,12 @@ local CRITICAL_STATES <const> = {
 --- Debug solo per il mob più vicino
 ---@param netId number Network ID del mob
 ---@param ... any Messaggi da stampare
+
+local debugmobenabled = false
 local function DebugMob(netId, ...)
     if not Config.Debug then return end
     if netId ~= closestControlledMobNetId then return end
+    if not debugmobenabled then return end
 
     local args = {...}
     local message = "[MOB DEBUG #" .. netId .. "] "
@@ -617,7 +620,7 @@ local function processSingleMob(netId, mobData, currentTime)
         end
     elseif isNearPlayerDead then
         if mobData.state == MOB_STATE.CHASING or mobData.state == MOB_STATE.ATTACKING or mobData.state == MOB_STATE.COOLDOWN then
-            DebugMob(netId, "Nearest player is dead, returning to idle")
+            --DebugMob(netId, "Nearest player is dead, returning to idle")
             mobData.currentTarget = nil
             clearCriticalState(mob, netId)
             clearMobTasks(mob, netId)
@@ -642,7 +645,7 @@ local function processSingleMob(netId, mobData, currentTime)
                 DebugStateChange(netId, oldState, mobData.state)
             else
                 if not mobData.lastFleeDebugTime or (currentTime - mobData.lastFleeDebugTime) > 5000 then
-                    DebugMob(netId, "Still fleeing (TASK_SMART_FLEE active)")
+                    --DebugMob(netId, "Still fleeing (TASK_SMART_FLEE active)")
                     mobData.lastFleeDebugTime = currentTime
                 end
                 mobData.tickDelay = 500
@@ -737,7 +740,7 @@ local function addControlledMob(zone, netId, mobType)
             local restoredPed = GetPlayerPed(restoredTarget)
             if DoesEntityExist(restoredPed) and not IsPedDeadOrDying(restoredPed, true) then
                 initialState = savedState
-                Debug("Restored critical state from statebag - Target: " .. savedTargetServerId .. " State: " .. MOB_STATE_NAMES[savedState])
+                --Debug("Restored critical state from statebag - Target: " .. savedTargetServerId .. " State: " .. MOB_STATE_NAMES[savedState])
             else
                 clearCriticalState(mob, netId)
             end
@@ -774,17 +777,9 @@ end
 -- ============================================
 
 RegisterNetEvent("nts_mobs:client:internal_add_mob", function(zone, netId, mobType)
-    --Debug("Received control_mob event - Zone: " .. zone .. " NetId: " .. netId .. " Type: " .. tostring(mobType))
-    print(json.encode({event="nts_mobs:client:internal_add_mob", zone=zone, netId=netId, mobType=mobType}))
     exports.nts_mobs:ESP_AddEntity(NetworkGetEntityFromNetworkId(netId), mobType, "enemy")
     addControlledMob(zone, netId, mobType)
 end)
-
---[[RegisterNetEvent("nts_mobs:client:internal_remove_mob", function(netId) -- non usato atm, evito di esporre.
-    --Debug("Received remove_mob event - NetId: " .. netId)
-    removeControlledMob(netId)
-end)]]
-
 
 -- ============================================
 -- EXPORTS (per debug/monitoring)
