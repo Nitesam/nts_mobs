@@ -24,13 +24,32 @@ Config.Mob = {
     MobType = {
         ["deer"] = {
             --- Model & Base Stats
-            ped = "a_c_deer",                           -- GTA model hash/name
-            speed = 1.4,                                -- Movement speed multiplier
+            ped = "a_c_deer",
+            speed = 1.4,
 
-            behaviour = "fugitive",                     -- Behaviour type (passive/aggressive/fugitive/neutral)
+            behaviour = "fugitive",
+
+            --- Component Variations (optional)
+            --- Format: [componentId] = {drawable = X, texture = Y, palette = Z}
+            --- If absent or nil, component won't be changed
+            randomComponents = true,                     -- Enable random component variations
+            components = { -- OPTIONAL | RANDOM COMPONENTS IGNORED IF randomComponents IS SET TO TRUE
+                -- [0] = {drawable = 0, texture = 0, palette = 0},  -- Face
+                -- [1] = {drawable = 0, texture = 0, palette = 0},  -- Mask
+                -- [2] = {drawable = 0, texture = 0, palette = 0},  -- Hair
+                -- [3] = {drawable = 0, texture = 0, palette = 0},  -- Torso
+                -- [4] = {drawable = 0, texture = 0, palette = 0},  -- Leg
+                -- [5] = {drawable = 0, texture = 0, palette = 0},  -- Parachute/bag
+                -- [6] = {drawable = 0, texture = 0, palette = 0},  -- Shoes
+                -- [7] = {drawable = 0, texture = 0, palette = 0},  -- Accessory
+                -- [8] = {drawable = 0, texture = 0, palette = 0},  -- Undershirt
+                -- [9] = {drawable = 0, texture = 0, palette = 0},  -- Kevlar
+                -- [10] = {drawable = 0, texture = 0, palette = 0}, -- Badge
+                -- [11] = {drawable = 0, texture = 0, palette = 0}, -- Torso 2
+            },
 
             --- Animation & Movement
-            movClipset = "creatures@deer@move",         -- Movement animation clipset
+            movClipset = "creatures@deer@move",
             visualRange = 20,                           -- Detection range (meters)
 
             escapeDistanceMax = {min = 20.0, max = 50.0}, -- Max distance to flee (meters)
@@ -520,15 +539,15 @@ Config.Mob = {
             },
 
             --- Spawning Configuration
-            mobMax = 10,                                 -- Maximum mobs in zone
+            mobMax = 100,                                -- Maximum mobs in zone
             newSpawnTime = 15,                           -- Spawn interval (seconds)
             spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
             forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
 
             --- Mob Spawn Weights
             mobs = {
-                ["deer"] = 50     
-                --[[["deer1"] = 50,  
+                ["deer"] = 50,     
+                ["deer1"] = 50,  
                 ["deer2"] = 50,          
                 ["deer3"] = 50,                                                                                                          -- Higher = higher spawn chance
                 ["coyote"] = 25,
@@ -537,7 +556,7 @@ Config.Mob = {
                 ["cow1"] = 25,                
                 ["rabbit"] = 25,
                 ["rat"] = 25,
-                ["mountain_lion"] = 25]]                                 
+                ["mountain_lion"] = 25                               
             },
 
             ---Soil Type Restrictions (optional)

@@ -28,7 +28,27 @@ for k, v in pairs(Config.Mob.Zone) do
     respawnQueue[k] = {}
 end
 
-local function CreateServerPed(model, _x, _y, _z, _h, _isRandomPed)
+--- Applica le variazioni dei componenti al ped
+---@param ped number Entity handle del ped
+---@param mobConfig table Configurazione del mob da Config.Mob.MobType
+local function ApplyPedComponents(ped, mobConfig)
+    if not ped or not DoesEntityExist(ped) then return end
+    if not mobConfig or not mobConfig.components then return end
+    
+    for componentId, componentData in pairs(mobConfig.components) do
+        if componentData then
+            local drawable = componentData.drawable or 0
+            local texture = componentData.texture or 0
+            local palette = componentData.palette or 0
+            
+            SetPedComponentVariation(ped, componentId, drawable, texture, palette)
+            Debug(string.format("^2[PED COMPONENT] Applied component %d: drawable=%d, texture=%d, palette=%d^7", 
+                componentId, drawable, texture, palette))
+        end
+    end
+end
+
+local function CreateServerPed(model, _x, _y, _z, _h, mobConfig)
     local ped = CreatePed(1, model, _x, _y, _z, _h, true, true)
     local retry = 0
     while not DoesEntityExist(ped) and retry < 50 do
@@ -36,11 +56,15 @@ local function CreateServerPed(model, _x, _y, _z, _h, _isRandomPed)
         Citizen.Wait(10)
     end
     
-    if not DoesEntityExist(ped) then
-        return nil
+    if not DoesEntityExist(ped) then return nil end
+    if mobConfig then
+        if mobConfig.randomComponents then
+            SetPedRandomComponentVariation(ped, true)
+        else
+            ApplyPedComponents(ped, mobConfig)
+        end
     end
     
-    SetPedRandomComponentVariation(ped, _isRandomPed)
     return ped
 end
 
@@ -117,7 +141,7 @@ local function trySpawnFromQueue(zoneIndex, queueIndex, queuedMob)
     end
     
     local coords = queuedMob.coords
-    local spawnedPed = CreateServerPed(mobConfig.ped, coords.x, coords.y, coords.z, 0.0, true)
+    local spawnedPed = CreateServerPed(mobConfig.ped, coords.x, coords.y, coords.z, 0.0, mobConfig)
     
     if not spawnedPed then
         queuedMob.retryCount = queuedMob.retryCount + 1
