@@ -83,7 +83,6 @@ local function init_thread_helper(zone)
                 local mobType = Entity(ped).state.mobType
                 if mobType then
                     TriggerEvent("nts_mobs:client:internal_add_mob", zone, netId, mobType)
-                    Debug("^1[Thread Helper]^7 Added mob with netId " .. netId .. " owned by self.")
                     knownMobs[netId] = true
                 else
                     knownMobs[netId] = currentTime

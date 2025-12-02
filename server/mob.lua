@@ -43,33 +43,39 @@ local function spawnMob(index, mobType, try, spawnpoint_id)
 
     local coords = getRandomSpawnCoords(index, spawnpoint_id)
     if not coords then
-        print("No spawn points available for zone " .. index)
+        print("^1NTS_MOBS | CRITICAL ERROR | ^2No spawn points available for Zone " .. index .. ", cannot spawn mob.^7")
         return
     end
 
-    print(mobType .. " spawning after " .. try + 1 .. " try.")
-
     Citizen.CreateThread(function()
-        local spawnedPed = CreatePed(2, Config.Mob.MobType[mobType].ped, coords.x, coords.y, coords.z, 0.0, true, true)
+        local mobConfig = Config.Mob.MobType[mobType]
+        local spawnedPed = CreatePed(2, mobConfig.ped, coords.x, coords.y, coords.z, 0.0, true, false)
         Citizen.Wait(100)
 
         if DoesEntityExist(spawnedPed) then
-            local tempNet = NetworkGetNetworkIdFromEntity(spawnedPed)
-            ZONE_TAB[index].mob[tempNet] = {ped = spawnedPed, owner = NetworkGetEntityOwner(spawnedPed) or -1, type = mobType, diedTime = 0, spawnpoint_id = spawnpoint_id}
-            ZONE_TAB[index].active += 1
+            FreezeEntityPosition(spawnedPed, true)
+            -- voglio fare un tentativo, credo che il motivo per ui i ped muoiano subito è perchè cadono dalla mappa,
+            -- li faccio sbloccare al client quando è vicino.
 
-            Entity(spawnedPed).state.mobZone = index
+            local tempNet = NetworkGetNetworkIdFromEntity(spawnedPed)
+            ZONE_TAB[index].mob[tempNet] = {
+                ped = spawnedPed,
+                owner = NetworkGetEntityOwner(spawnedPed) or -1,
+                type = mobType,
+                diedTime = 0,
+                spawnpoint_id = spawnpoint_id,
+                loot = GenerateLootForMob(mobConfig),
+                lootable = false,
+                spawnCoords = coords
+            }
+
+            Entity(spawnedPed).state.lootable = false
             Entity(spawnedPed).state.mobType = mobType
             Entity(spawnedPed).state.spawnpoint_id = spawnpoint_id
 
-            --[[if ZONE_TAB[index].mob[tempNet].owner ~= -1 then
-                TriggerClientEvent("nts_mobs:client:control_mob", ZONE_TAB[index].mob[tempNet].owner, index, tempNet, mobType)
-                print("Mob " .. tempNet .. " spawned on spawn number " .. spawnpoint_id .. " and assigned to owner " .. ZONE_TAB[index].mob[tempNet].owner .. ".")
-            end]]
+            ZONE_TAB[index].active += 1
         else
-            if try < 10 then
-                spawnMob(index, mobType, try + 1, spawnpoint_id)
-            end
+            if try < 10 then spawnMob(index, mobType, try + 1, spawnpoint_id) end
         end
     end)
 end
@@ -109,27 +115,20 @@ end
 
 -- @param zone: string; netId: int; giveDrop: int (should be source id of player receiver)
 local function removeMob(zone, netId, giveDrop)
-    if ZONE_TAB[zone].mob[netId] then
-        if DoesEntityExist(ZONE_TAB[zone].mob[netId].ped) then
-            DeleteEntity(ZONE_TAB[zone].mob[netId].ped)
+    local mobData = ZONE_TAB[zone].mob[netId]
+    if not mobData then return end
 
-            if giveDrop then
-                -- TO DO
+    local saved_spawnpoint = mobData.spawnpoint_id
+    ZONE_TAB[zone].mob[netId] = nil
+    ZONE_TAB[zone].active -= 1
+
+    if ZONE_TAB[zone].running then
+        SetTimeout(Config.Mob.Zone[zone].newSpawnTime * 1000, function()
+            if ZONE_TAB[zone].running then
+                Debug("New Mob Spawning Try in " .. zone .. " has been requested because timeout of removed one expired.")
+                extractMob(zone, saved_spawnpoint)
             end
-        end
-
-        local saved_spawnpoint = ZONE_TAB[zone].mob[netId].spawnpoint_id
-        ZONE_TAB[zone].mob[netId] = nil
-        ZONE_TAB[zone].active -= 1
-
-        if ZONE_TAB[zone].running then
-            SetTimeout(Config.Mob.Zone[zone].newSpawnTime * 1000, function()
-                if ZONE_TAB[zone].running then
-                    Debug("New Mob Spawning Try in " .. zone .. " has been requested because timeout of removed one expired.")
-                    extractMob(zone, saved_spawnpoint)
-                end
-            end)
-        end
+        end)
     end
 end
 
@@ -154,27 +153,35 @@ local function startZoneThread(index)
                 end
             end
 
-            for k, v in pairs(ZONE_TAB[index].mob) do
-                if DoesEntityExist(v.ped) then
-                    local owner = NetworkGetEntityOwner(v.ped)
-
-                    --[[if owner ~= v.owner then
-                        Debug("Mob " .. k .. " Owner Changed from " .. v.owner .. " to " .. owner .. ".")
-
-                        ZONE_TAB[index].mob[k].owner = owner
-                        TriggerClientEvent("nts_mobs:client:control_mob", owner, index, k, v.type)
-                    end]]
-
-                    if owner ~= -1 and GetEntityHealth(v.ped) <= 0 then
-                        ZONE_TAB[index].mob[k].diedTime += 1
-
-                        if v.diedTime >= Config.Mob.MobType[ZONE_TAB[index].mob[k].type].tryBeforeRemoving then
-                            Debug("Mob " .. k .. " Died and has been Removed.")
-                            removeMob(index, k, nil)
-                        else
-                            Debug("Mob " .. k .. " Died and will be removed at next try.\nCurrent: " .. v.diedTime .. ".")
+            for k, mob in pairs(ZONE_TAB[index].mob) do
+                if DoesEntityExist(mob.ped) then
+                    local owner = NetworkGetEntityOwner(mob.ped)
+                    local ownerDist = 999999
+                    
+                    if owner ~= -1 then
+                        local ownerPed = GetPlayerPed(owner)
+                        if ownerPed and DoesEntityExist(ownerPed) then
+                            ownerDist = #(GetEntityCoords(mob.ped) - GetEntityCoords(ownerPed))
                         end
                     end
+                    
+                    if owner ~= -1 and GetEntityHealth(mob.ped) <= 0 then
+                        if ownerDist <= 100.0 then
+                            mob.diedTime += 1
+
+                            if mob.diedTime >= Config.Mob.MobType[mob.type].tryBeforeRemoving then
+                                removeMob(index, k, nil)
+                            else
+                                if not mob.lootable then
+                                    Entity(mob.ped).state.lootable = true
+                                    mob.lootable = true
+                                end
+                            end
+                        end
+                    end
+                else
+                    Debug("^1Mob " .. k .. " does not exist anymore, removing from zone.^7")
+                    removeMob(index, k, nil)
                 end
             end
 

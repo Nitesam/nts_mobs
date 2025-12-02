@@ -1,4 +1,5 @@
 local zoneTrianglesCache = {}
+local should_render_debug_lines = not Config.Debug
 
 local function getZoneTriangles(index, points)
     if not zoneTrianglesCache[index] then
@@ -69,14 +70,15 @@ function GetRandomPoints(index, points, count)
                 0
             )
 
-            if Config.Debug then
+            if Config.Debug and should_render_debug_lines then
                 local debugPoint = point
                 local debugMaterial = material
                 Citizen.CreateThread(function()
+                    
                     local endTime = GetGameTimer() + 30000
-                    while GetGameTimer() < endTime do
+                    while GetGameTimer() < endTime and should_render_debug_lines do
                         DrawLine(debugPoint.x, debugPoint.y, debugPoint.z + 5.0, debugPoint.x, debugPoint.y, debugPoint.z - 3.0, 255, 0, 0, 150)
-                        qbx.drawText3d({
+                        drawText3d({
                             text = "Material: " .. tostring(debugMaterial),
                             coords = vec3(debugPoint.x, debugPoint.y, debugPoint.z + 1.0),
                             scale = 0.35,
@@ -183,3 +185,43 @@ function RayCastGamePlayCamera(distance)
     local retval, hit, endCoords, surfaceNormal, entityHit = GetShapeTestResult(shapeTest)
     return hit, endCoords, entityHit
 end
+
+function drawText3d(params) -- luacheck: ignore
+    local isScaleparamANumber = type(params.scale) == "number"
+    local text = params.text
+    local coords = params.coords
+    local scale = (isScaleparamANumber and vec2(params.scale, params.scale))
+    or params.scale
+    or vec2(0.35, 0.35)
+    local font = params.font or 4
+    local color = params.color or vec4(255, 255, 255, 255)
+    local enableDropShadow = params.enableDropShadow or false
+    local enableOutline = params.enableOutline or false
+
+    SetTextScale(scale.x, scale.y)
+    SetTextFont(font)
+    SetTextColour(math.floor(color.r), math.floor(color.g), math.floor(color.b), math.floor(color.a))
+    if enableDropShadow then
+        SetTextDropShadow()
+    end
+    if enableOutline then
+        SetTextOutline()
+    end
+    SetTextCentre(true)
+    BeginTextCommandDisplayText('STRING')
+    AddTextComponentSubstringPlayerName(text)
+    SetDrawOrigin(coords.x, coords.y, coords.z, 0)
+    EndTextCommandDisplayText(0.0, 0.0)
+
+    if not params.disableDrawRect then
+        local factor = #text / 370
+        DrawRect(0.0, 0.0125, 0.017 + factor, 0.03, 0, 0, 0, 75)
+    end
+    ClearDrawOrigin()
+end
+
+if not Config.Debug then return end
+RegisterCommand("togglelines", function()
+    should_render_debug_lines = not should_render_debug_lines
+    print("Debug lines rendering is now " .. (should_render_debug_lines and "enabled" or "disabled"))
+end, false)

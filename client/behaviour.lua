@@ -164,6 +164,8 @@ end
 --- Configures mob behavior attributes (audio, combat, flee)
 ---@param mob number Entity handle
 local function configureMobBehavior(mob)
+    SetEntityAsMissionEntity(mob, true, true)
+
     StopPedSpeaking(mob, false)
     DisablePedPainAudio(mob, false)
     TaskSetBlockingOfNonTemporaryEvents(mob, true)
@@ -717,6 +719,12 @@ local function addControlledMob(zone, netId, mobType)
         return
     end
 
+    while not HasCollisionLoadedAroundEntity(mob) do
+        if not DoesEntityExist(mob) then return end
+        Wait(50)
+    end
+
+    FreezeEntityPosition(mob, false)
     configureMobBehavior(mob)
 
     local savedTargetServerId, savedState = readCriticalState(mob)
@@ -767,6 +775,8 @@ end
 
 RegisterNetEvent("nts_mobs:client:internal_add_mob", function(zone, netId, mobType)
     --Debug("Received control_mob event - Zone: " .. zone .. " NetId: " .. netId .. " Type: " .. tostring(mobType))
+    print(json.encode({event="nts_mobs:client:internal_add_mob", zone=zone, netId=netId, mobType=mobType}))
+    exports.nts_mobs:ESP_AddEntity(NetworkGetEntityFromNetworkId(netId), mobType, "enemy")
     addControlledMob(zone, netId, mobType)
 end)
 
