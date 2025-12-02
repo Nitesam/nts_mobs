@@ -130,12 +130,12 @@ end
 
 local Inv = exports.core_inventory
 local function registerAndInitInventory(mobConfig, zone, netId)
-    local stashId = zoneIndex .. "-mob-".. netId
+    local stashId = zone .. "-mob-".. netId
 
-    Inv:openInventory(nil, zoneIndex .. "-mob-".. netId, 'stash', nil, nil, false, nil, true)
+    Inv:openInventory(nil, stashId, 'stash', nil, nil, false, nil, true)
     Inv:clearInventory(stashId)
 
-    for k,v in pairs(GenerateLootForMob(mobConfig)) do Inv:addItem(stashId, v.item, v.quantity) end
+    for k,v in pairs(GenerateLootForMob(mobConfig)) do local res = Inv:addItem(stashId, v.item, v.quantity) --[[print(tostring(res) .. " for " .. v.item .. " x" .. v.quantity)]] end
 end
 
 --- Tenta di spawnare un mob dalla coda
@@ -144,6 +144,11 @@ end
 ---@param queuedMob table
 ---@return boolean success
 local function trySpawnFromQueue(zoneIndex, queueIndex, queuedMob)
+    local zoneIndex = zoneIndex
+    if not zoneIndex then
+        return print("^1[QUEUE ERROR] zoneIndex is nil for " .. json.encode(queuedMob) .. "^7")
+    end
+    
     local mobConfig = Config.Mob.MobType[queuedMob.mobType]
     if not mobConfig then
         Debug("^1[QUEUE ERROR] Invalid mob type: " .. tostring(queuedMob.mobType) .. "^7")
@@ -261,7 +266,7 @@ end
 local function startSpawnQueueThread(zoneIndex)
     Citizen.CreateThread(function()
         Debug("^2[QUEUE] Starting spawn queue thread for zone " .. zoneIndex .. "^7")
-        
+        local zoneIndex = zoneIndex
         while ZONE_TAB[zoneIndex].running do
             local queue = spawnQueue[zoneIndex]
             

@@ -20,7 +20,7 @@ function AddModelsToLooting(models, zone)
                 local netId = NetworkGetNetworkIdFromEntity(data.entity)
                 if not netId or netId == 0 then return end
 
-                TriggerEvent("nts_mobs:server:open_loot_menu", netId, zone)
+                TriggerServerEvent("nts_mobs:server:open_loot_menu", netId, zone)
             end
         }
     })

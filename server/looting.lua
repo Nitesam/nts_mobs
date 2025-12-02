@@ -62,7 +62,7 @@ RegisterNetEvent("nts_mobs:server:open_loot_menu", function(netId, zone)
         return
     end
 
-    if ZONE_TAB.zones[zone] == nil then
+    if ZONE_TAB[zone] == nil then
         print("User ".. GetPlayerName(source) .." tried to open loot menu for invalid zone: " .. tostring(zone))
         return
     end
@@ -73,20 +73,22 @@ RegisterNetEvent("nts_mobs:server:open_loot_menu", function(netId, zone)
         return
     end
 
-    if #(GetEntityCoords(source) - GetEntityCoords(mob)) > 5.0 then
+    if #(GetEntityCoords(GetPlayerPed(source)) - GetEntityCoords(mob)) > 5.0 then
         Debug("Player too far from mob to loot. NetId: " .. tostring(netId))
         return
     end
 
     --if not ZONE
-    local mobData = ZONE_TAB.zones[zone].entities[netId]
+    local mobData = ZONE_TAB[zone].entities[netId]
     if not mobData then
         Debug("Mob with netId " .. tostring(netId) .. " is invalid.")
         return
     end
 
+
     local stashId = zone .. "-mob-".. netId
     exports.core_inventory:openInventory(source, stashId, 'stash', nil, nil, true, nil, true)
+    print("Player ".. GetPlayerName(source) .." opened loot menu for mob netId: " .. tostring(netId) .. " in zone: " .. zone)
 end)
 
 --[[

@@ -70,7 +70,7 @@ Config.Mob = {
             --- Loot Table
             max_loot = 2,                                -- Maximum different loot items to drop,
             loot = {
-                ["elk_fur"] = {
+                ["holonastro_piano"] = {
                     min = 1,                            -- Minimum quantity
                     max = 3,                            -- Maximum quantity
                     weight = 5                          -- Drop probability (0-100)
@@ -641,7 +641,7 @@ Config.Mob = {
             --- Mob Spawn Weights
             mobs = {
                 ["deer"] = 50,     
-                ["deer1"] = 50,  
+                --[[["deer1"] = 50,  
                 ["deer2"] = 50,          
                 ["deer3"] = 50,      
                 ["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
@@ -652,7 +652,7 @@ Config.Mob = {
                 ["rabbit"] = 25,
                 ["rat"] = 25,
                 ["mountain_lion"] = 25,       
-                ["mountain_lion1"] = 25                                            
+                ["mountain_lion1"] = 25 ]]                                           
             },
 
             ---Soil Type Restrictions (optional)

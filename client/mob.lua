@@ -120,7 +120,7 @@ local function initialize()
 
             local models_of_zone = (function()
                 local models = {}
-                for mobType, mobData in pairs(Config.Mob.MobType) do models[#models + 1] = mobData.model end
+                for mobType, mobData in pairs(Config.Mob.MobType) do models[#models + 1] = mobData.ped end
                 return models
             end)()
 
