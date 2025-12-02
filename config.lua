@@ -95,7 +95,7 @@ Config.Mob = {
             visualRange = 20,                           -- Detection range (meters)
 
             escapeDistanceMax = {min = 20.0, max = 50.0}, -- Max distance to flee (meters)
-
+            randomComponents = true,                     -- Enable random component variations
             --- Combat Configuration                    -- NOT USED FOR FUGITIVE BEHAVIOUR
             --  attackRange = 1.5,                      -- Attack range (meters)
             --[[attackTypes = {                         -- if behaviour is in aggressive or passive, you can define attack types here if ped does not have default attacks
@@ -207,8 +207,49 @@ Config.Mob = {
 
             --- Death & Cleanup
             tryBeforeRemoving = 200                      -- Attempts before corpse removal (≈30 sec per try)
-        },         
+        },    
 
+        ["deer4"] = {
+            --- Model & Base Stats
+            ped = "a_c_deer_02",                           -- GTA model hash/name
+            speed = 1.4,                                -- Movement speed multiplier
+
+            behaviour = "fugitive",                     -- Behaviour type (passive/aggressive/fugitive/neutral)
+
+            --- Animation & Movement
+            movClipset = "creatures@deer@move",         -- Movement animation clipset
+            visualRange = 20,                           -- Detection range (meters)
+
+            escapeDistanceMax = {min = 20.0, max = 50.0}, -- Max distance to flee (meters)
+            randomComponents = true,                     -- Enable random component variations
+            --- Combat Configuration                    -- NOT USED FOR FUGITIVE BEHAVIOUR
+            --  attackRange = 1.5,                      -- Attack range (meters)
+            --[[attackTypes = {                         -- if behaviour is in aggressive or passive, you can define attack types here if ped does not have default attacks
+                ["main"] = {
+                    anim = {                            -- Set to nil for default game attack
+                        animDict = "melee@unarmed@streamed_variations",
+                        animClip = "plyr_takedown_front_backslap"
+                    },
+                    damage = 15,                        -- Damage per hit
+                    timeBetween = 4                     -- Seconds between attacks
+                }
+            },]]
+
+            --- Loot Table
+            max_loot = 2,                                -- Maximum different loot items to drop,
+            loot = {
+                ["elk_fur"] = {
+                    min = 1,                            -- Minimum quantity
+                    max = 3,                            -- Maximum quantity
+                    weight = 5                          -- Drop probability (0-100)
+                }
+            },
+
+            hasTrollMode = true,                        -- Shoots RPG if player raises hands
+
+            --- Death & Cleanup
+            tryBeforeRemoving = 200                      -- Attempts before corpse removal (≈30 sec per try)
+        },
 
         ["coyote"] = {
             --- Model & Base Stats
@@ -220,7 +261,7 @@ Config.Mob = {
             --- Animation & Movement
             movClipset = "creatures@coyote@move",      -- Movement animation clipset
             visualRange = 20,                          -- Detection range (meters)
-
+            randomComponents = true,                     -- Enable random component variations
             escapeDistanceMax = {min = 20.0, max = 60.0}, -- Max distance to flee (meters)
 
             --- Combat Configuration                    -- NOT USED FOR FUGITIVE BEHAVIOUR
@@ -252,13 +293,55 @@ Config.Mob = {
             tryBeforeRemoving = 200                      -- Attempts before corpse removal (≈30 sec per try)
         },
 
+        ["coyote1"] = {
+            --- Model & Base Stats
+            ped = "a_c_coyote_02",                        -- GTA model hash/name
+            speed = 1.5,                               -- Movement speed multiplier
+
+            behaviour = "fugitive",                    -- Behaviour type (passive/aggressive/fugitive/neutral)
+
+            --- Animation & Movement
+            movClipset = "creatures@coyote@move",      -- Movement animation clipset
+            visualRange = 20,                          -- Detection range (meters)
+            randomComponents = true,                     -- Enable random component variations
+            escapeDistanceMax = {min = 20.0, max = 60.0}, -- Max distance to flee (meters)
+
+            --- Combat Configuration                    -- NOT USED FOR FUGITIVE BEHAVIOUR
+            --  attackRange = 1.5,                      -- Attack range (meters)
+            --[[attackTypes = {                         -- if behaviour is in aggressive or passive, you can define attack types here if ped does not have default attacks
+                ["main"] = {
+                    anim = {                            -- Set to nil for default game attack
+                        animDict = "melee@unarmed@streamed_variations",
+                        animClip = "plyr_takedown_front_backslap"
+                    },
+                    damage = 10,                        -- Damage per hit
+                    timeBetween = 4                     -- Seconds between attacks
+                }
+            },]]
+
+            --- Loot Table
+            max_loot = 2,                                -- Maximum different loot items to drop,
+            loot = {
+                ["coyote_pelt"] = {
+                    min = 1,                            -- Minimum quantity
+                    max = 2,                            -- Maximum quantity
+                    weight = 10                         -- Drop probability (0-100)
+                }
+            },
+
+            hasTrollMode = false,                       -- Shoots RPG if player raises hands
+
+            --- Death & Cleanup
+            tryBeforeRemoving = 200                      -- Attempts before corpse removal (≈30 sec per try)
+        },        
+
         ["boar"] = {
             --- Model & Base Stats
-            ped = "a_c_boar",                           -- GTA model hash/name
+            ped = "a_c_boar_02",                           -- GTA model hash/name
             speed = 1.2,                                -- Movement speed multiplier
 
             behaviour = "aggressive",                   -- Behaviour type (passive/aggressive/fugitive/neutral)
-
+            randomComponents = true,                     -- Enable random component variations
             --- Animation & Movement
             movClipset = "creatures@boar@move",         -- Movement animation clipset
             visualRange = 25,                           -- Detection range (meters)
@@ -282,36 +365,6 @@ Config.Mob = {
                     min = 1,                            -- Minimum quantity
                     max = 3,                            -- Maximum quantity
                     weight = 15                         -- Drop probability
-                }
-            },
-
-            hasTrollMode = false,                       -- Shoots RPG if player raises hands
-
-            --- Death & Cleanup
-            tryBeforeRemoving = 200                      -- Attempts before corpse removal (≈30 sec per try)
-        },
-        ["cow"] = {
-            --- Model & Base Stats
-            ped = "a_c_cow",                            -- GTA model hash/name
-            speed = 1.0,                                -- Movement speed multiplier
-
-            behaviour = "passive",                      -- Behaviour type (passive/aggressive/fugitive/neutral)
-
-            --- Animation & Movement
-            movClipset = "creatures@cow@move",          -- Movement animation clipset
-            visualRange = 20,                           -- Detection range (meters)
-
-            --- Combat Configuration                    -- PASSIVE: NO ATTACKS
-            -- attackRange = 0.0,                       -- Attack range (meters)
-            -- attackTypes = {},
-
-            --- Loot Table
-            max_loot = 2,                                -- Maximum different loot items to drop,
-            loot = {
-                ["cow_meat"] = {
-                    min = 2,                            -- Minimum quantity
-                    max = 5,                            -- Maximum quantity
-                    weight = 20                         -- Drop probability
                 }
             },
 
@@ -360,7 +413,7 @@ Config.Mob = {
             speed = 1.8,                                -- Movement speed multiplier
 
             behaviour = "fugitive",                     -- Behaviour type (passive/aggressive/fugitive/neutral)
-
+            randomComponents = true,                     -- Enable random component variations
             --- Animation & Movement
             movClipset = "creatures@rabbit@move",       -- Movement animation clipset
             visualRange = 15,                           -- Detection range (meters)
@@ -405,7 +458,7 @@ Config.Mob = {
             --- Animation & Movement
             movClipset = "creatures@rat@move",          -- Movement animation clipset
             visualRange = 10,                           -- Detection range (meters)
-
+            randomComponents = true,                     -- Enable random component variations
             escapeDistanceMax = {min = 10.0, max = 25.0}, -- Max distance to flee (meters)
 
             --- Combat Configuration                    -- NOT USED FOR FUGITIVE BEHAVIOUR
@@ -445,7 +498,7 @@ Config.Mob = {
             speed = 1.4,                                -- Movement speed multiplier
 
             behaviour = "fugitive",                     -- Behaviour type (passive/aggressive/fugitive/neutral)
-
+            randomComponents = true,                     -- Enable random component variations
             --- Animation & Movement
             movClipset = "creatures@deer@move",         -- Movement animation clipset
             visualRange = 20,                           -- Detection range (meters)
@@ -486,7 +539,7 @@ Config.Mob = {
             speed = 1.7,                                -- Movement speed multiplier
 
             behaviour = "aggressive",                   -- Behaviour type (passive/aggressive/fugitive/neutral)
-
+            randomComponents = true,                     -- Enable random component variations
             --- Animation & Movement
             movClipset = "creatures@mountain_lion@move",-- Movement animation clipset
             visualRange = 30,                           -- Detection range (meters)
@@ -518,7 +571,48 @@ Config.Mob = {
 
             --- Death & Cleanup
             tryBeforeRemoving = 200                     -- Attempts before corpse removal (≈30 sec per try)
-        }
+        },
+
+
+        ["mountain_lion1"] = {
+            --- Model & Base Stats
+            ped = "a_c_mtlion_02",                         -- GTA model hash/name
+            speed = 1.7,                                -- Movement speed multiplier
+
+            behaviour = "aggressive",                   -- Behaviour type (passive/aggressive/fugitive/neutral)
+            randomComponents = true,                     -- Enable random component variations
+            --- Animation & Movement
+            movClipset = "creatures@mountain_lion@move",-- Movement animation clipset
+            visualRange = 30,                           -- Detection range (meters)
+
+            --- Combat Configuration
+            attackRange = 29.9,                         -- Attack range (meters)
+
+                                                        -- SET TO NIL OR EMPTY THIS TABLE TO USE DEFAULT GTA ATTACKS
+            attackTypes = {                             -- if behaviour is in aggressive or passive, you can define attack types here if ped does not have default attacks
+                --[[["main"] = {
+                    anim = nil,                         
+                    damage = 25,                        -- IF ANIM IS NULL, IT WILL USE GTA Damage per hit
+                    executeTime = 3000,                 -- Milliseconds between attacks
+                    cooldown = 2000                     -- Milliseconds before next attack
+                }]]
+            },
+
+            --- Loot Table
+            max_loot = 2,                                -- Maximum different loot items to drop
+            loot = {
+                ["mountain_lion_pelt"] = {
+                    min = 1,                            -- Minimum quantity
+                    max = 2,                            -- Maximum quantity
+                    weight = 5                          -- Drop probability
+                }
+            },
+
+            hasTrollMode = false,                       -- Shoots RPG if player raises hands
+
+            --- Death & Cleanup
+            tryBeforeRemoving = 200                     -- Attempts before corpse removal (≈30 sec per try)
+        }        
     },
 
     ---========================================================================
@@ -539,7 +633,7 @@ Config.Mob = {
             },
 
             --- Spawning Configuration
-            mobMax = 100,                                -- Maximum mobs in zone
+            mobMax = 300,                                -- Maximum mobs in zone
             newSpawnTime = 15,                           -- Spawn interval (seconds)
             spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
             forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
@@ -549,14 +643,16 @@ Config.Mob = {
                 ["deer"] = 50,     
                 ["deer1"] = 50,  
                 ["deer2"] = 50,          
-                ["deer3"] = 50,                                                                                                          -- Higher = higher spawn chance
+                ["deer3"] = 50,      
+                ["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
                 ["coyote"] = 25,
+                ["coyote1"] = 25,                
                 ["boar"] = 25,
-                ["cow"] = 25,
                 ["cow1"] = 25,                
                 ["rabbit"] = 25,
                 ["rat"] = 25,
-                ["mountain_lion"] = 25                               
+                ["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 25                                            
             },
 
             ---Soil Type Restrictions (optional)

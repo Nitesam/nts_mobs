@@ -118,6 +118,12 @@ local function initialize()
             local minHeight = findThicknessBasedOnArea(v.pos, v.forcedMinHeight)
             --for i = 1, #v.pos do v.pos[i] = vec3(v.pos[i].x, v.pos[i].y, v.pos[i].z + (minHeight/2)) end
 
+            local models_of_zone = (function()
+                local models = {}
+                for mobType, mobData in pairs(Config.Mob.MobType) do models[#models + 1] = mobData.model end
+                return models
+            end)()
+
             zoneMob[k] = {}
             zoneMob[k].inside = false
             zoneMob[k].poly = lib.zones.poly({
@@ -131,12 +137,14 @@ local function initialize()
                     Debug("Entered zone " .. k)
 
                     init_thread_helper(k)
+                    AddModelsToLooting(models_of_zone, k)
                 end,
                 onExit = function(self)
                     zoneMob[k].inside = false
                     TriggerServerEvent("nts_mobs:server:playerExitZone", k)
                     Debug("Exited zone " .. k)
                     thread_helper_initialized = 0
+                    RemoveModelsFromLooting(models_of_zone)
                 end
             })
 

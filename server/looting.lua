@@ -55,3 +55,78 @@ function GenerateLootForMob(mobConfig) -- dovrebbe essere O(log n) però verific
 
     return loot_table
 end
+
+RegisterNetEvent("nts_mobs:server:open_loot_menu", function(netId, zone)
+    if not zone then
+        print("User ".. GetPlayerName(source) .." tried to open loot menu without zone specified.")
+        return
+    end
+
+    if ZONE_TAB.zones[zone] == nil then
+        print("User ".. GetPlayerName(source) .." tried to open loot menu for invalid zone: " .. tostring(zone))
+        return
+    end
+
+    local mob = NetworkGetEntityFromNetworkId(netId)
+    if not mob or not DoesEntityExist(mob) then
+        Debug("Mob entity does not exist for netId: " .. tostring(netId))
+        return
+    end
+
+    if #(GetEntityCoords(source) - GetEntityCoords(mob)) > 5.0 then
+        Debug("Player too far from mob to loot. NetId: " .. tostring(netId))
+        return
+    end
+
+    --if not ZONE
+    local mobData = ZONE_TAB.zones[zone].entities[netId]
+    if not mobData then
+        Debug("Mob with netId " .. tostring(netId) .. " is invalid.")
+        return
+    end
+
+    local stashId = zone .. "-mob-".. netId
+    exports.core_inventory:openInventory(source, stashId, 'stash', nil, nil, true, nil, true)
+end)
+
+--[[
+    source number? server id of the player, can be nil
+
+    inventoryname string   inventory name like :  'content-'.. citizenid / identifier:gsub(':','') or 'stash-'.. citizenid / identifier:gsub(':','')
+
+    inventorytype
+
+    string
+
+    inventory type like 'content' or 'stash'
+
+    x
+
+    number
+
+    position in pixel on the screen horizontally
+
+    y
+
+    number
+
+    position in pixel on the screen vertically
+
+    open
+
+    boolean
+
+    define if the inventory should be open (display) or just preopen (load)
+
+    content
+
+    table
+
+    the default content of the inventory (return the content of the inventory if its already exist)
+
+    discoverItem
+
+    boolean
+
+    if true, the content of the inventory will need to be discovered (item will be hide / shadow)
+]]

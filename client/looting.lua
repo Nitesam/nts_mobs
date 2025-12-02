@@ -1,7 +1,36 @@
 local TargetOBJ = exports['ox_target']
 TARGETS_LIST = {}
 
-local function removeOptionsForTarget(netId)
+
+
+function AddModelsToLooting(models, zone)
+    local zone = zone
+    TargetOBJ:addModel(models, {
+        {
+            icon = 'fas fa-box-open',
+            label = 'Loota Mob',
+            name = 'nts_mobs:loot_mob',
+            distance = 2.0,
+            canInteract = function(entity, distance, coords, name, bone)
+                local isLootable = Entity(entity).state.lootable
+                if isLootable == nil then return false end
+                return isLootable -- aggiungerò altri check qui con Black
+            end,
+            onSelect = function(data)
+                local netId = NetworkGetNetworkIdFromEntity(data.entity)
+                if not netId or netId == 0 then return end
+
+                TriggerEvent("nts_mobs:server:open_loot_menu", netId, zone)
+            end
+        }
+    })
+end
+
+function RemoveModelsFromLooting(models)
+    TargetOBJ:removeModel(models, 'nts_mobs:loot_mob')
+end
+
+--[[local function removeOptionsForTarget(netId) -- Old Logic, keeping here just for fun
     local target = TARGETS_LIST[netId]
     if not target then return end
 
@@ -26,21 +55,7 @@ AddStateBagChangeHandler('lootable', nil, function(bagName, key, value)
 
     TARGETS_LIST[netId] = entity
 
-    TargetOBJ:addEntity(netId, {
-        {
-            icon = 'fas fa-box-open',
-            label = 'Loota Mob',
-            name = 'nts_mobs:loot_mob',
-            distance = 2.0,
-            canInteract = function(entity, distance, coords, name, bone)
-                return true -- aggiungerò altri check qui con Black
-            end,
-            onSelect = function(data)
-                print("Opening loot menu for netId " .. netId)
-                TriggerEvent("nts_mobs:server:open_loot_menu", netId)
-            end
-        }
-    })
+    
 
     Debug("^2Added loot target for netId " .. netId .. "^7")
-end)
+end)]]

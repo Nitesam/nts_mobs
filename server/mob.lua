@@ -127,6 +127,17 @@ local function removeFromQueue(zoneIndex, queueIndex)
     ZONE_TAB[zoneIndex].pendingSpawns = math.max(0, ZONE_TAB[zoneIndex].pendingSpawns - 1)
 end
 
+
+local Inv = exports.core_inventory
+local function registerAndInitInventory(mobConfig, zone, netId)
+    local stashId = zoneIndex .. "-mob-".. netId
+
+    Inv:openInventory(nil, zoneIndex .. "-mob-".. netId, 'stash', nil, nil, false, nil, true)
+    Inv:clearInventory(stashId)
+
+    for k,v in pairs(GenerateLootForMob(mobConfig)) do Inv:addItem(stashId, v.item, v.quantity) end
+end
+
 --- Tenta di spawnare un mob dalla coda
 ---@param zoneIndex string
 ---@param queueIndex number
@@ -163,6 +174,8 @@ local function trySpawnFromQueue(zoneIndex, queueIndex, queuedMob)
     end
     
     FreezeEntityPosition(spawnedPed, true)
+
+    registerAndInitInventory(mobConfig, zoneIndex, netId)
     
     ZONE_TAB[zoneIndex].entities[netId] = {
         ped = spawnedPed,
@@ -170,7 +183,6 @@ local function trySpawnFromQueue(zoneIndex, queueIndex, queuedMob)
         type = queuedMob.mobType,
         diedTime = 0,
         spawnpoint_id = queuedMob.spawnpoint_id,
-        loot = GenerateLootForMob(mobConfig),
         lootable = false,
         spawnCoords = coords
     }
