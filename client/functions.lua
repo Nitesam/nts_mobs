@@ -135,9 +135,9 @@ function GetPlayers(onlyOtherPlayers, returnKeyValue, returnPeds)
     return players
 end
 
-function getClosestPlayerToMob(mob)
+function getClosestPlayerToMob(mob, coords)
     local closestDistance, closestPlayer = -1, -1
-    local pos = GetEntityCoords(mob)
+    local pos = coords or GetEntityCoords(mob)
 
     for player, ped in pairs(GetPlayers(false, true, true)) do
         if not IsPedDeadOrDying(ped, true) then

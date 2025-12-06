@@ -487,12 +487,12 @@ AddEventHandler("nts_mobs:server:playerEnterZone", function(zoneIndex)
         return
     end
 
-    playerZoneCooldown[src] = playerZoneCooldown[src] or {}
+    --[[playerZoneCooldown[src] = playerZoneCooldown[src] or {}
     if playerZoneCooldown[src][zoneIndex] and (now - playerZoneCooldown[src][zoneIndex]) < ZONE_ENTRY_COOLDOWN then
         Debug("Player " .. src .. " zone entry cooldown active for " .. zoneIndex)
         return
     end
-    playerZoneCooldown[src][zoneIndex] = now
+    playerZoneCooldown[src][zoneIndex] = now]]
 
     ZONE_TAB[zoneIndex].playersInside[src] = true
     Debug("Player " .. src .. " entered zone " .. zoneIndex)
@@ -508,7 +508,6 @@ AddEventHandler("nts_mobs:server:playerEnterZone", function(zoneIndex)
     end
 end)
 
-
 RegisterServerEvent("nts_mobs:server:playerExitZone")
 AddEventHandler("nts_mobs:server:playerExitZone", function(zoneIndex)
     local src = source
@@ -521,8 +520,8 @@ AddEventHandler("nts_mobs:server:playerExitZone", function(zoneIndex)
         return
     end
 
-    playerZoneCooldown[src] = playerZoneCooldown[src] or {}
-    playerZoneCooldown[src][zoneIndex] = now
+    --[[playerZoneCooldown[src] = playerZoneCooldown[src] or {}
+    playerZoneCooldown[src][zoneIndex] = now]]
 
     ZONE_TAB[zoneIndex].playersInside[src] = nil
     ZONE_TAB[zoneIndex].lastPlayerLeft = now
@@ -531,7 +530,7 @@ end)
 
 AddEventHandler("playerDropped", function(reason)
     local src = source
-    playerZoneCooldown[src] = nil
+    --playerZoneCooldown[src] = nil
 
     for zoneIndex, zone in pairs(ZONE_TAB) do
         if zone.playersInside[src] then

@@ -154,7 +154,7 @@ Config.Mob = {
             --- Loot Table
             max_loot = 2,                                -- Maximum different loot items to drop,
             loot = {
-                ["elk_fur"] = {
+                ["holonastro_piano"] = {
                     min = 1,                            -- Minimum quantity
                     max = 3,                            -- Maximum quantity
                     weight = 5                          -- Drop probability (0-100)
@@ -165,7 +165,7 @@ Config.Mob = {
 
             --- Death & Cleanup
             tryBeforeRemoving = 200                      -- Attempts before corpse removal (≈30 sec per try)
-        },    
+        }, 
         
         ["deer3"] = {
             --- Model & Base Stats
@@ -619,40 +619,40 @@ Config.Mob = {
     --- ZONE DEFINITIONS
     ---========================================================================
     Zone = {
-        ["zone_a"] = {
+        ["zone_a_green"] = {
             --- Display & Identification
-            name = "Zone A",                             -- Zone display name
+            name = "zone_a_green",                             -- Zone display name
             debug = true,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
-                vector3(-3465.8328, 558.9139, 223.8700),
-                vector3(-3779.2009, 1201.3663, 201.8117),
-                vector3(-3502.8323, 1376.0372, 195.1998),
-                vector3(-2705.1714, 731.2459, 153.3470)
+                vector3(343.3242, -342.4894, 224.8999),
+                vector3(245.0393, -788.9842, 218.9549),
+                vector3(652.4891, -797.6891, 218.83191),
+                vector3(790.3426, -509.0922, 174.9967)
             },
 
             --- Spawning Configuration
-            mobMax = 300,                                -- Maximum mobs in zone
+            mobMax = 20,                                -- Maximum mobs in zone
             newSpawnTime = 15,                           -- Spawn interval (seconds)
             spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
             forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
 
             --- Mob Spawn Weights
             mobs = {
-                ["deer"] = 50,     
-                --[[["deer1"] = 50,  
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
                 ["deer2"] = 50,          
-                ["deer3"] = 50,      
-                ["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
-                ["coyote"] = 25,
-                ["coyote1"] = 25,                
-                ["boar"] = 25,
-                ["cow1"] = 25,                
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                --["cow1"] = 25,                
                 ["rabbit"] = 25,
-                ["rat"] = 25,
-                ["mountain_lion"] = 25,       
-                ["mountain_lion1"] = 25 ]]                                           
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                --["mountain_lion1"] = 25                                          
             },
 
             ---Soil Type Restrictions (optional)
@@ -660,6 +660,581 @@ Config.Mob = {
                 [-1595148316] = true,                    -- OBLIVION DESERT SOIL
                 [510490462] = true                       -- GTA BASED SOIL
             }
-        }
+        },
+
+        ["zone_b_green"] = {
+            --- Display & Identification
+            name = "zone_b_green",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(1020.4070, -1351.2511, 221.1693),
+                vector3(1029.9106, -466.4460, 204.8005),
+                vector3(1364.2922, -330.5164, 229.3672),
+                vector3(1551.3341, -1397.5233, 267.0090)
+            },
+
+            --- Spawning Configuration
+            mobMax = 50,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                ["deer2"] = 50,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                --["cow1"] = 25,                
+                ["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                --["mountain_lion1"] = 25                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },        
+
+
+
+
+
+
+
+        ["zone_a_orange"] = {
+            --- Display & Identification
+            name = "zone_a_orange",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(971.9084, 216.6523, 35.5323),
+                vector3(93.9602, 766.3568, 44.6384),
+                vector3(775.0135, 1231.5184, 27.5921),
+                vector3(1155.1978, 786.9205, 46.0644)
+            },
+
+            --- Spawning Configuration
+            mobMax = 80,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                ["deer1"] = 50,  
+                ["deer2"] = 10,          
+                ["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                --["cow1"] = 25,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                --["mountain_lion1"] = 25                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },
+
+
+        ["zone_b_orange"] = {
+            --- Display & Identification
+            name = "zone_b_orange",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(2309.1353, -2081.0173, 220.5602),
+                vector3(3099.1238, -2615.7915, 213.1186),
+                vector3(3020.2690, -2823.1643, 223.5323),
+                vector3(2138.6616, -2265.3745, 221.6027)
+            },
+
+            --- Spawning Configuration
+            mobMax = 80,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                ["deer1"] = 50,  
+                --["deer2"] = 10,          
+                ["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                --["cow1"] = 25,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                --["mountain_lion1"] = 25                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },  
+        
+        
+        ["zone_c_orange"] = {
+            --- Display & Identification
+            name = "zone_c_orange",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(709.7933, -2940.4614, 43.1887),
+                vector3(1300.6293, -2307.8835, 81.2073),
+                vector3(1804.6212, -2710.9597, 77.7995),
+                vector3(1095.2025, -3287.0801, 57.0892)
+            },
+
+            --- Spawning Configuration
+            mobMax = 80,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                ["deer1"] = 50,  
+                --["deer2"] = 10,          
+                ["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                --["cow1"] = 25,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                --["mountain_lion1"] = 25                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },   
+        
+        
+        ["zone_d_orange"] = {
+            --- Display & Identification
+            name = "zone_d_orange",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(-90.2354, 397.2726, 222.6465),
+                vector3(-174.2281, 182.9799, 225.7401),
+                vector3(-1253.2115, 704.3705, 206.2096),
+                vector3(-1083.8027, 915.3314, 195.4475)
+            },
+
+            --- Spawning Configuration
+            mobMax = 80,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                ["deer1"] = 50,  
+                --["deer2"] = 10,          
+                ["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                --["cow1"] = 25,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                --["mountain_lion1"] = 25                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },
+        
+        ["zone_e_orange"] = {
+            --- Display & Identification
+            name = "zone_e_orange",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(15.9088, -2908.3545, 88.4300),
+                vector3(-715.3306, -3738.2373, 52.5047),
+                vector3(-1828.4733, -2709.5854, 52.7633),
+                vector3(-1241.6240, -2020.2188, 78.4809)
+            },
+
+            --- Spawning Configuration
+            mobMax = 150,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                ["deer1"] = 50,  
+                ["deer2"] = 10,          
+                ["deer3"] = 50,      
+                ["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                ["coyote"] = 25,
+                ["coyote1"] = 25,                
+                ["boar"] = 25,
+                ["cow1"] = 25,                
+                ["rabbit"] = 25,
+                --["rat"] = 25,
+                ["mountain_lion"] = 15,       
+                ["mountain_lion1"] = 15                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },     
+        
+        
+
+
+        ["zone_a_red"] = {
+            --- Display & Identification
+            name = "zone_e_orange",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(-2689.9399, 441.4294, 129.4635),
+                vector3(-3491.0930, 543.5516, 225.5711),
+                vector3(-3850.0437, 1194.9561, 203.9345),
+                vector3(-3198.5444, 1401.6016, 202.7968)
+            },
+
+            --- Spawning Configuration
+            mobMax = 150,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                --["deer2"] = 10,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                ["cow1"] = 50,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 10                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },
+        
+        ["zone_b_red"] = {
+            --- Display & Identification
+            name = "zone_b_red",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(-3157.0762, 2472.4985, 49.5756),
+                vector3(-2779.0398, 2985.7104, 63.1443),
+                vector3(-1563.2369, 2293.5361, 41.2754),
+                vector3(-1962.7168, 1773.6580, 41.3314)
+            },
+
+            --- Spawning Configuration
+            mobMax = 150,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                --["deer2"] = 10,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                ["cow1"] = 50,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 10                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        }, 
+        
+        
+        ["zone_c_red"] = {
+            --- Display & Identification
+            name = "zone_c_red",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(1644.0745, 1948.8796, 73.4303),
+                vector3(2511.1287, 900.1794, 49.8385),
+                vector3(3483.9326, 1528.9625, 54.0018),
+                vector3(3175.4221, 2465.5864, 65.4556)
+            },
+
+            --- Spawning Configuration
+            mobMax = 150,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                --["deer2"] = 10,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                ["cow1"] = 50,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 10                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },     
+        
+        ["zone_d_red"] = {
+            --- Display & Identification
+            name = "zone_d_red",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(1112.9618, -3296.3884, 57.2034),
+                vector3(1805.8247, -2748.2380, 85.3885),
+                vector3(1992.6531, -3207.7358, 34.0096),
+                vector3(1419.6287, -3602.0701, 66.3440)
+            },
+
+            --- Spawning Configuration
+            mobMax = 150,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                --["deer2"] = 10,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                ["cow1"] = 50,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 10                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        }, 
+        
+        ["zone_e_red"] = {
+            --- Display & Identification
+            name = "zone_e_red",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(-724.4334, -3763.6609, 53.6543),
+                vector3(-1837.3881, -2737.7361, 52.8237),
+                vector3(-2090.2561, -3129.5664, 52.6795),
+                vector3(-1018.8697, -3967.5232, 40.6994)
+            },
+
+            --- Spawning Configuration
+            mobMax = 150,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                --["deer2"] = 10,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                ["cow1"] = 50,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 10                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        }, 
+        
+        ["zone_f_red"] = {
+            --- Display & Identification
+            name = "zone_f_red",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(-3537.3728, -2506.5134, 188.1814),
+                vector3(-3515.8354, -3067.9373, 195.6290),
+                vector3(-3093.1313, -2794.9451, 207.6990),
+                vector3(-3092.3948, -2567.3818, 140.9528)
+            },
+
+            --- Spawning Configuration
+            mobMax = 100,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                --["deer2"] = 10,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                ["cow1"] = 50,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 10                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        },  
+        
+        ["zone_g_red"] = {
+            --- Display & Identification
+            name = "zone_g_red",                             -- Zone display name
+            debug = true,                               -- Debug mode for this zone
+
+            --- Zone Boundaries (Polygon Points)
+            pos = {
+                vector3(-3344.5576, -1043.6312, 149.3687),
+                vector3(-2394.4377, -1569.6691, 157.5931),
+                vector3(-3018.4329, -1786.2484, 191.4764),
+                vector3(-3527.0117, -1331.4281, 204.8571)
+            },
+
+            --- Spawning Configuration
+            mobMax = 100,                                -- Maximum mobs in zone
+            newSpawnTime = 15,                           -- Spawn interval (seconds)
+            spawnBorderDistance = 2,                     -- Min distance from polygon edge (meters)
+            forcedMinHeight =  98.727104187012,          -- Force minimum Z height (nil = auto)
+
+            --- Mob Spawn Weights
+            mobs = {
+                --["deer"] = 50,     
+                --["deer1"] = 50,  
+                --["deer2"] = 10,          
+                --["deer3"] = 50,      
+                --["deer4"] = 50,                                                                                                                              -- Higher = higher spawn chance
+                --["coyote"] = 25,
+                --["coyote1"] = 25,                
+                --["boar"] = 25,
+                ["cow1"] = 50,                
+                --["rabbit"] = 25,
+                --["rat"] = 25,
+                --["mountain_lion"] = 25,       
+                ["mountain_lion1"] = 10                                          
+            },
+
+            ---Soil Type Restrictions (optional)
+            whitelistedSoilTypes = {                     -- Allowed soil type hashes
+                [-1595148316] = true,                    -- OBLIVION DESERT SOIL
+                [510490462] = true                       -- GTA BASED SOIL
+            }
+        }        
+
+
+
     }
 }

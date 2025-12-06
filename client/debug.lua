@@ -37,7 +37,7 @@ local function GetEntityDimensions(entity)
     }
 end
 
-local function DrawESPBox(entity, color, label)
+local function DrawESPBox(entity, color, label, mobData)
     local playerCoords = GetEntityCoords(PlayerPedId())
     local entityCoords = GetEntityCoords(entity)
     local distance = #(playerCoords - entityCoords)
@@ -91,11 +91,33 @@ local function DrawESPBox(entity, color, label)
     DrawLine(corners[3].x, corners[3].y, corners[3].z, corners[7].x, corners[7].y, corners[7].z, r, g, b, a)
     DrawLine(corners[4].x, corners[4].y, corners[4].z, corners[8].x, corners[8].y, corners[8].z, r, g, b, a)
     
-    -- Label sopra il box
+
     local onScreen, screenX, screenY = World3dToScreen2d(entityCoords.x, entityCoords.y, zTop + 0.2)
     if onScreen then
         local textScale = math.max(0.25, 0.4 * scale)
         
+        if mobData then
+            if mobData.stuckAttempts > 0 then
+                SetTextScale(textScale * 0.6, textScale * 0.6)
+                SetTextFont(4)
+                SetTextColour(255, 255, 0, 255)
+                SetTextOutline()
+                SetTextCentre(true)
+                BeginTextCommandDisplayText("STRING")
+                AddTextComponentSubstringPlayerName("IS STUCK")
+                EndTextCommandDisplayText(screenX, screenY - 0.06)
+            end
+
+            SetTextScale(textScale, textScale)
+            SetTextFont(4)
+            SetTextColour(0, 255, 0, 255)
+            SetTextOutline()
+            SetTextCentre(true)
+            BeginTextCommandDisplayText("STRING")
+            AddTextComponentSubstringPlayerName(mobData and MOB_STATE_NAMES[mobData.state] or "Unknown")
+            EndTextCommandDisplayText(screenX, screenY - 0.04)
+        end
+
         SetTextScale(textScale, textScale)
         SetTextFont(4)
         SetTextColour(r, g, b, 255)
@@ -178,7 +200,7 @@ Citizen.CreateThread(function()
                         color = ESP_COLORS.dead
                     end
                     
-                    DrawESPBox(data.entity, color, data.label)
+                    DrawESPBox(data.entity, color, data.label, CONTROLLED_MOBS[NetworkGetNetworkIdFromEntity(data.entity)])
                 end
             end
             Citizen.Wait(0)

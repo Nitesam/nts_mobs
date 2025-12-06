@@ -14,9 +14,14 @@ local MOTION_STATE_RUNNING = -530524
 -- ============================================
 
 CONTROLLED_MOBS = {}                   -- Tabella dei mob controllati
+
 local controlThreadActive = false      -- Flag stato thread
 local THREAD_TICK_RATE = 50            -- ms - frequenza base del thread
 local closestControlledMobNetId = nil  -- NetId del mob controllato più vicino (per debug)
+
+local STUCK_CHECK_INTERVAL = 500       -- ms - intervallo tra i controlli di movimento
+local STUCK_DISTANCE_THRESHOLD = 0.75  -- unità - distanza minima considerata come movimento
+local REQUIRED_STUCK_CHECKS = 2        -- numero di controlli consecutivi prima di considerare il mob bloccato
 
 local MOB_STATE <const> = {
     IDLE = 1,
@@ -27,7 +32,7 @@ local MOB_STATE <const> = {
     COOLDOWN = 6
 }
 
-local MOB_STATE_NAMES = {
+MOB_STATE_NAMES = {
     [1] = "IDLE",
     [2] = "WANDERING",
     [3] = "CHASING",
@@ -35,6 +40,8 @@ local MOB_STATE_NAMES = {
     [5] = "FLEEING",
     [6] = "COOLDOWN"
 }
+
+local MOB_STATE_NAMES = MOB_STATE_NAMES
 
 -- Stati che richiedono persistenza via statebag
 local CRITICAL_STATES <const> = {
@@ -73,6 +80,14 @@ local function DebugStateChange(netId, oldState, newState)
     if oldState ~= newState then
         DebugMob(netId, "State:", MOB_STATE_NAMES[oldState] or "?", "->", MOB_STATE_NAMES[newState] or "?")
     end
+end
+
+local function SwitchToMobState(mobData, newState, netId)
+    if mobData.state == newState then return false end
+    local oldState = mobData.state
+    mobData.state = newState
+    DebugStateChange(netId, oldState, newState)
+    return true
 end
 
 --- Trova il mob controllato più vicino al giocatore
@@ -156,12 +171,39 @@ end
 -- UTILITY FUNCTIONS
 -- ============================================
 
+local function clearMobTasks(mob, netId)
+    ClearPedTasks(mob)
+    DebugMob(netId, "Cleared all tasks")
+end
+
 local function getControlledMobCount()
     local count = 0
     for _ in pairs(CONTROLLED_MOBS) do
         count = count + 1
     end
     return count
+end
+
+-- void TaskGoToCoordAnyMeans(int /* Ped */ ped, float x, float y, float z, float fMoveBlendRatio, int /* Vehicle */ vehicle, bool bUseLongRangeVehiclePathing, int drivingFlags, float fMaxRangeToShootTargets);
+local MAX_SPAWN_RETRIES <const> = 20
+local function generateCoordsAndGo(mob, zone, mobData, netId, try)
+    local points = GetRandomPoints(zone, Config.Mob.Zone[zone].pos, 1)
+    if #points == 0 then
+        DebugMob(netId, "No valid points generated for wandering")
+        Wait(0)
+        local is_max_reached = (try or 0) > MAX_SPAWN_RETRIES
+        print("^1[MOB DEBUG #" .. netId .. "]^2 Max wandering point generation retries reached, giving up.^7")
+        return is_max_reached and nil or generateCoordsAndGo(mob, zone, mobData, netId, (try or 0) + 1)
+    end
+
+    local dest = points[1]
+    TaskGoToCoordAnyMeans(mob, dest.x, dest.y, dest.z, (function()
+        local speed = mobData.mobConfig.speed or 1.0
+        if speed < 0.3 then return 1.0 end
+        if speed > 3.0 then return 3.0 end
+        return speed
+    end)(), 0, false, 786603, 0.0)
+    DebugMob(netId, "Wandering to point:", string.format("(%.2f, %.2f, %.2f)", dest.x, dest.y, dest.z))
 end
 
 --- Configures mob behavior attributes (audio, combat, flee)
@@ -208,37 +250,54 @@ end
 ---@param mobData table Dati del mob
 ---@param netId number Network ID
 ---@return boolean isStuck
-local function isMobStuck(mob, mobData, netId)
-    local currentPos = GetEntityCoords(mob)
+local function isMobStuck(mob, mobData, netId, mobCoords)
+    local currentPos = mobCoords or GetEntityCoords(mob)
     local currentTime = GetGameTimer()
 
-    if not mobData.lastKnownPos then
-        mobData.lastKnownPos = currentPos
-        mobData.lastPosCheckTime = currentTime
-        return false
-    end
-    if currentTime - mobData.lastPosCheckTime < 3000 then
+    if not mobData.lastMovementCoords then
+        mobData.lastMovementCoords = currentPos
+        mobData.lastMovementCheckTime = currentTime
+        mobData.stuckAttempts = 0
         return false
     end
 
-    local distance = #(currentPos - mobData.lastKnownPos)
-    mobData.lastKnownPos = currentPos
-    mobData.lastPosCheckTime = currentTime
-
-    if distance < 1.0 and mobData.state == MOB_STATE.WANDERING then
-        DebugMob(netId, "Mob appears stuck (moved only", string.format("%.2f", distance), "units in 3s)")
-        return true
+    if currentTime - (mobData.lastMovementCheckTime or 0) < STUCK_CHECK_INTERVAL then
+        return false
     end
-    
+
+    local distance = #(currentPos - mobData.lastMovementCoords)
+    mobData.lastMovementCoords = currentPos
+    mobData.lastMovementCheckTime = currentTime
+
+    if mobData.state == MOB_STATE.WANDERING and distance <= STUCK_DISTANCE_THRESHOLD then
+        mobData.stuckAttempts = (mobData.stuckAttempts or 0) + 1
+        DebugMob(netId, "Mob appears stuck (check #" .. mobData.stuckAttempts .. ")", string.format("%.2f", distance), "units in", STUCK_CHECK_INTERVAL .. "ms")
+        if mobData.stuckAttempts >= REQUIRED_STUCK_CHECKS then
+            mobData.stuckAttempts = 0
+            return true
+        end
+        return false
+    end
+
+    mobData.stuckAttempts = 0
     return false
 end
 
---- Pulisce i task e prepara il mob per un nuovo comportamento
----@param mob number Entity handle
----@param netId number Network ID for debug
-local function clearMobTasks(mob, netId)
-    ClearPedTasks(mob)
-    DebugMob(netId, "Cleared all tasks")
+local function recoverStuckMob(mob, zone, mobData, netId)
+    clearMobTasks(mob, netId)
+    mobData.lastMovementCoords = nil
+    mobData.lastMovementCheckTime = 0
+    mobData.stuckAttempts = 0
+    mobData.stuckRecoveryCount = (mobData.stuckRecoveryCount or 0) + 1
+
+    if mobData.stuckRecoveryCount % 3 == 0 then
+        TaskWanderStandard(mob, 10.0, 10)
+        DebugMob(netId, "Fallback wander task issued to recover stuck mob")
+    else
+        generateCoordsAndGo(mob, zone, mobData, netId)
+    end
+
+    SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
 end
 
 -- ============================================
@@ -301,9 +360,7 @@ local function initMeleeAttack(mob, targetPed, targetPlayer, mobConfig, netId, m
         TaskCombatPed(mob, targetPed, 0, 1)
         mobData.attackCooldown = GetGameTimer() + 2500
 
-        local oldState = mobData.state
-        mobData.state = MOB_STATE.ATTACKING
-        DebugStateChange(netId, oldState, mobData.state)
+        SwitchToMobState(mobData, MOB_STATE.ATTACKING, netId)
 
         DebugMob(netId, "Basic melee attack (no custom attack config)")
         return
@@ -320,12 +377,10 @@ local function initMeleeAttack(mob, targetPed, targetPlayer, mobConfig, netId, m
         executed = false
     }
 
-    local oldState = mobData.state
-    mobData.state = MOB_STATE.ATTACKING
+    SwitchToMobState(mobData, MOB_STATE.ATTACKING, netId)
     mobData.attackCooldown = currentTime + (attack.cooldown or 750)
 
     DebugMob(netId, "Initiating melee attack, damage:", attack.damage)
-    DebugStateChange(netId, oldState, mobData.state)
 end
 
 --- Processa l'attacco melee pendente
@@ -364,9 +419,7 @@ local function processMeleeAttack(mob, mobData, netId)
 
         attackData.executed = true
         mobData.pendingAttack = nil
-        local oldState = mobData.state
-        mobData.state = MOB_STATE.COOLDOWN
-        DebugStateChange(netId, oldState, mobData.state)
+        SwitchToMobState(mobData, MOB_STATE.COOLDOWN, netId)
     end
 end
 
@@ -388,9 +441,7 @@ local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig,
         DebugMob(netId, "Target is dead, looking for new target")
         mobData.currentTarget = nil
         clearCriticalState(mob, netId)
-        local oldState = mobData.state
-        mobData.state = MOB_STATE.IDLE
-        DebugStateChange(netId, oldState, mobData.state)
+        SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
         clearMobTasks(mob, netId)
         return
     end
@@ -428,9 +479,7 @@ local function handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobConfig,
         end
     end
 
-    local oldState = mobData.state
-    mobData.state = MOB_STATE.CHASING
-    DebugStateChange(netId, oldState, mobData.state)
+    SwitchToMobState(mobData, MOB_STATE.CHASING, netId)
 
     if not mobData.lastStatebagUpdate or (GetGameTimer() - mobData.lastStatebagUpdate) > 2000 then
         saveCriticalState(mob, mobData, netId)
@@ -450,9 +499,7 @@ local function handleEscapeFromPlayer(mob, nearPlayer, mobConfig, mobData, netId
     if IsPedDeadOrDying(nearPlayerPed, true) then
         DebugMob(netId, "Player is dead, no need to flee")
         mobData.currentTarget = nil
-        local oldState = mobData.state
-        mobData.state = MOB_STATE.IDLE
-        DebugStateChange(netId, oldState, mobData.state)
+        SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
         clearMobTasks(mob, netId)
         return
     end
@@ -474,27 +521,7 @@ local function handleEscapeFromPlayer(mob, nearPlayer, mobConfig, mobData, netId
         DebugMob(netId, "Fleeing from player! (15s duration)")
     end
 
-    local oldState = mobData.state
-    mobData.state = MOB_STATE.FLEEING
-    DebugStateChange(netId, oldState, mobData.state)
-end
-
--- void TaskGoToCoordAnyMeans(int /* Ped */ ped, float x, float y, float z, float fMoveBlendRatio, int /* Vehicle */ vehicle, bool bUseLongRangeVehiclePathing, int drivingFlags, float fMaxRangeToShootTargets);
-local function generateCoordsAndGo(mob, zone, mobData, netId)
-    local points = GetRandomPoints(zone, Config.Mob.Zone[zone].pos, 1)
-    if #points == 0 then
-        DebugMob(netId, "No valid points generated for wandering")
-        return
-    end
-
-    local dest = points[1]
-    TaskGoToCoordAnyMeans(mob, dest.x, dest.y, dest.z, (function()
-        local speed = mobData.mobConfig.speed or 1.0
-        if speed < 0.3 then return 1.0 end
-        if speed > 3.0 then return 3.0 end
-        return speed
-    end)(), 0, false, 786603, 0.0)
-    DebugMob(netId, "Wandering to point:", string.format("(%.2f, %.2f, %.2f)", dest.x, dest.y, dest.z))
+    SwitchToMobState(mobData, MOB_STATE.FLEEING, netId)
 end
 
 --- Handles mob wandering behavior
@@ -503,21 +530,24 @@ end
 ---@param mobData table
 ---@param netId number
 local function handleWanderingBehavior(mob, zone, mobData, netId)
-    if isMobStuck(mob, mobData, netId) then
-        DebugMob(netId, "Mob is stuck, clearing tasks and generating new destination")
-        clearMobTasks(mob, netId)
-        generateCoordsAndGo(mob, zone, mobData, netId)
+    if isMobStuck(mob, mobData, netId, mobData.currentCoords) then
+        DebugMob(netId, "Mob is stuck during wandering, trying to recover")
+        recoverStuckMob(mob, zone, mobData, netId)
         return
     end
     
     if isMobWandering(mob) then
+        SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
         return
     end
 
-    local oldState = mobData.state
-    mobData.state = MOB_STATE.IDLE
+    if not isMobIdle(mob) then
+        SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
+        return
+    end
+
     DebugMob(netId, "Wandering task finished, returning to IDLE")
-    DebugStateChange(netId, oldState, mobData.state)
+    SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
 end
 
 --- Handles mob idle behavior - attempts to transition to WANDERING
@@ -533,18 +563,19 @@ local function handleIdleBehavior(mob, zone, mobData, netId)
 
     if isMobIdle(mob) then
         generateCoordsAndGo(mob, zone, mobData, netId)
-
-        local oldState = mobData.state
-        mobData.state = MOB_STATE.WANDERING
-        DebugStateChange(netId, oldState, mobData.state)
+        SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
         return
     end
 
-    if mobData.state ~= MOB_STATE.IDLE then
-        local oldState = mobData.state
-        mobData.state = MOB_STATE.IDLE
-        DebugStateChange(netId, oldState, mobData.state)
-    end
+    SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
+end
+
+local function returnToZone(mob, zone, mobData, netId)
+    clearMobTasks(mob, netId)
+    generateCoordsAndGo(mob, zone, mobData, netId)
+    DebugMob(netId, "Returning to zone:", zone)
+    SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
+    Debug("^1[MOB DEBUG #" .. netId .. "]^2 Returning to zone " .. zone .. "^7")
 end
 
 -- ============================================
@@ -574,7 +605,7 @@ local function processSingleMob(netId, mobData, currentTime)
         return
     end
 
-    processMeleeAttack(mob, mobData, netId)
+    processMeleeAttack(mob, mobData, netId)         -- the script is gonna process the mellee attack only if queued (see later)
 
     if mobData.pendingAttack then
         DebugMob(netId, "Waiting for pending attack to complete...")
@@ -583,10 +614,8 @@ local function processSingleMob(netId, mobData, currentTime)
 
     if mobData.state == MOB_STATE.COOLDOWN or mobData.state == MOB_STATE.ATTACKING then
         if currentTime >= (mobData.attackCooldown or 0) then
-            local oldState = mobData.state
-            mobData.state = MOB_STATE.CHASING
             DebugMob(netId, "Attack cooldown finished, returning to chase")
-            DebugStateChange(netId, oldState, mobData.state)
+            SwitchToMobState(mobData, MOB_STATE.CHASING, netId)
         else
             return
         end
@@ -596,37 +625,41 @@ local function processSingleMob(netId, mobData, currentTime)
         return
     end
     mobData.lastProcessTime = currentTime
+    mobData.currentCoords = GetEntityCoords(mob)
 
-    local nearPlayer, nearPlayerDistance = getClosestPlayerToMob(mob)
+    if (mobData.state == MOB_STATE.WANDERING or mobData.state == MOB_STATE.IDLE) and not zoneMob[mobData.zone].poly:contains(mobData.currentCoords) then
+        returnToZone(mob, mobData.zone, mobData, netId)
+        return
+    end
+
+    local nearPlayer, nearPlayerDistance = getClosestPlayerToMob(mob, mobData.currentCoords)
     --ensureMovementClipset(mob, mobData.mobConfig, netId)
 
     local nearPlayerPed = GetPlayerPed(nearPlayer)
     local isNearPlayerDead = IsPedDeadOrDying(nearPlayerPed, true)
 
+    if mobData.mobConfig.hasTrollMode and nearPlayerDistance <= (mobData.mobConfig.visualRange * 2) and IsEntityPlayingAnim(nearPlayerPed, 'custom@take_l', 'take_l', 3) then
+        TaskTurnPedToFaceEntity(mob, nearPlayerPed, 500)
+        SetTimeout(500, function() ShootLaser(mob, nearPlayerPed, mobData, netId) end)
+        mobData.tickDelay = 2000
+    end
+
     if nearPlayerDistance <= mobData.mobConfig.visualRange and not isNearPlayerDead then
         DebugMob(netId, "Player in visual range:", string.format("%.2f", nearPlayerDistance), "/", mobData.mobConfig.visualRange)
 
-        if mobData.mobConfig.hasTrollMode and IsEntityPlayingAnim(nearPlayerPed, 'custom@take_l', 'take_l', 3) then
-            TaskTurnPedToFaceEntity(mob, nearPlayerPed, 500)
-            SetTimeout(500, function() ShootLaser(mob, nearPlayerPed, mobData, netId) end)
-            mobData.tickDelay = 2000
-        else
-            if mobData.mobConfig.behaviour == "aggressive" then
-                handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobData.mobConfig, netId, mobData)
-            elseif mobData.mobConfig.behaviour == "fugitive" then
-                handleEscapeFromPlayer(mob, nearPlayer, mobData.mobConfig, mobData, netId)
-            end
-            mobData.tickDelay = 150
+        if mobData.mobConfig.behaviour == "aggressive" then
+            handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobData.mobConfig, netId, mobData)
+        else -- if mobData.mobConfig.behaviour == "fugitive" then                                       -- if is not aggressive, is fugitive for now
+            handleEscapeFromPlayer(mob, nearPlayer, mobData.mobConfig, mobData, netId)
         end
+        mobData.tickDelay = 150
     elseif isNearPlayerDead then
         if mobData.state == MOB_STATE.CHASING or mobData.state == MOB_STATE.ATTACKING or mobData.state == MOB_STATE.COOLDOWN then
             --DebugMob(netId, "Nearest player is dead, returning to idle")
             mobData.currentTarget = nil
             clearCriticalState(mob, netId)
             clearMobTasks(mob, netId)
-            local oldState = mobData.state
-            mobData.state = MOB_STATE.IDLE
-            DebugStateChange(netId, oldState, mobData.state)
+            SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
         end
 
         if mobData.state == MOB_STATE.WANDERING then
@@ -637,12 +670,10 @@ local function processSingleMob(netId, mobData, currentTime)
         mobData.tickDelay = 1000
     else
         if mobData.state == MOB_STATE.FLEEING and GetIsTaskActive(mob, TASK_SMART_FLEE) then
-            if isMobStuck(mob, mobData, netId) then
+            if isMobStuck(mob, mobData, netId, mobData.currentCoords) then
                 DebugMob(netId, "Fleeing mob is stuck, stopping flee and returning to idle")
                 clearMobTasks(mob, netId)
-                local oldState = mobData.state
-                mobData.state = MOB_STATE.IDLE
-                DebugStateChange(netId, oldState, mobData.state)
+                SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
             else
                 if not mobData.lastFleeDebugTime or (currentTime - mobData.lastFleeDebugTime) > 5000 then
                     --DebugMob(netId, "Still fleeing (TASK_SMART_FLEE active)")
@@ -760,8 +791,10 @@ local function addControlledMob(zone, netId, mobType)
         attackCooldown = 0,
         pendingAttack = nil,
         lastStatebagUpdate = 0,
-        lastKnownPos = nil,
-        lastPosCheckTime = 0,
+        lastMovementCoords = nil,
+        lastMovementCheckTime = 0,
+        stuckAttempts = 0,
+        stuckRecoveryCount = 0,
         lastFleeDebugTime = 0
     }
 
