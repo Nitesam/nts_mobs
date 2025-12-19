@@ -57,6 +57,8 @@ local function CreateServerPed(model, _x, _y, _z, _h, mobConfig)
     end
     
     if not DoesEntityExist(ped) then return nil end
+    SetEntityOrphanMode(ped, 2) -- Prevents ped from despawning when no players are nearby [found on fivem docs, i still have to check if it works]
+
     if mobConfig then
         if mobConfig.randomComponents then
             SetPedRandomComponentVariation(ped, true)
@@ -135,7 +137,12 @@ local function registerAndInitInventory(mobConfig, zone, netId)
     Inv:openInventory(nil, stashId, 'stash', nil, nil, false, nil, true)
     Inv:clearInventory(stashId)
 
-    for k,v in pairs(GenerateLootForMob(mobConfig)) do local res = Inv:addItem(stashId, v.item, v.quantity) --[[print(tostring(res) .. " for " .. v.item .. " x" .. v.quantity)]] end
+    local loot_generated = GenerateLootForMob(mobConfig)
+    if not loot_generated or #loot_generated == 0 then return end
+
+    Citizen.SetTimeout(1000, function() -- non ne sono sicuro ma dovrebbe rimuovere [[[Core Inventory] Inventory not loaded !]] error.
+        for k,v in pairs(loot_generated) do local res = Inv:addItem(stashId, v.item, v.quantity) --[[print(tostring(res) .. " for " .. v.item .. " x" .. v.quantity)]] end
+    end)
 end
 
 --- Tenta di spawnare un mob dalla coda
@@ -157,7 +164,7 @@ local function trySpawnFromQueue(zoneIndex, queueIndex, queuedMob)
     end
     
     local coords = queuedMob.coords
-    local spawnedPed = CreateServerPed(mobConfig.ped, coords.x, coords.y, coords.z, 0.0, mobConfig)
+    local spawnedPed = CreateServerPed(mobConfig.ped, coords.x, coords.y, coords.z + 0.5, 0.0, mobConfig)
     
     if not spawnedPed then
         queuedMob.retryCount = queuedMob.retryCount + 1
@@ -220,6 +227,39 @@ local function queueRespawn(zoneIndex, spawnpoint_id)
     
     Debug(string.format("^3[RESPAWN QUEUE] Added respawn for zone %s | Spawnpoint: %d | In: %ds^7", 
         zoneIndex, spawnpoint_id, respawnDelay))
+end
+
+local function spawnMob(index, mobType, try, spawnpoint_id)
+    if not spawnpoint_id then
+        ZONE_TAB[index].currentSpawnpointCounter = (ZONE_TAB[index].currentSpawnpointCounter + 1) % #ZONE_TAB[index].spawnPoints
+        if ZONE_TAB[index].currentSpawnpointCounter == 0 then
+            ZONE_TAB[index].currentSpawnpointCounter = 1
+        end
+        spawnpoint_id = ZONE_TAB[index].currentSpawnpointCounter
+    end
+
+    local coords = getRandomSpawnCoords(index, spawnpoint_id)
+    if not coords then
+        print("^1NTS_MOBS | CRITICAL ERROR | ^2No spawn points available for Zone " .. index .. ", cannot spawn mob.^7")
+        return
+    end
+
+    queueMobSpawn(index, mobType, spawnpoint_id, coords)
+end
+
+local function extractMob(index, spawnpoint_id)
+    if not ZONE_TAB[index].running then return false end
+
+    if ZONE_TAB[index].active < Config.Mob.Zone[index].mobMax then
+        local chosen = pickRandomMob(Config.Mob.Zone[index].mobs)
+
+        if chosen then
+            spawnMob(index, chosen, 0, spawnpoint_id)
+            return true
+        end
+    end
+
+    return false
 end
 
 --- Thread per processare la coda di respawn di una zona
@@ -303,40 +343,6 @@ local function startSpawnQueueThread(zoneIndex)
         
         Debug("^3[QUEUE] Spawn queue thread stopped for zone " .. zoneIndex .. "^7")
     end)
-end
-
--- Nuova versione di spawnMob che usa la coda
-local function spawnMob(index, mobType, try, spawnpoint_id)
-    if not spawnpoint_id then
-        ZONE_TAB[index].currentSpawnpointCounter = (ZONE_TAB[index].currentSpawnpointCounter + 1) % #ZONE_TAB[index].spawnPoints
-        if ZONE_TAB[index].currentSpawnpointCounter == 0 then
-            ZONE_TAB[index].currentSpawnpointCounter = 1
-        end
-        spawnpoint_id = ZONE_TAB[index].currentSpawnpointCounter
-    end
-
-    local coords = getRandomSpawnCoords(index, spawnpoint_id)
-    if not coords then
-        print("^1NTS_MOBS | CRITICAL ERROR | ^2No spawn points available for Zone " .. index .. ", cannot spawn mob.^7")
-        return
-    end
-
-    queueMobSpawn(index, mobType, spawnpoint_id, coords)
-end
-
-local function extractMob(index, spawnpoint_id)
-    if not ZONE_TAB[index].running then return false end
-
-    if ZONE_TAB[index].active < Config.Mob.Zone[index].mobMax then
-        local chosen = pickRandomMob(Config.Mob.Zone[index].mobs)
-
-        if chosen then
-            spawnMob(index, chosen, 0, spawnpoint_id)
-            return true
-        end
-    end
-
-    return false
 end
 
 local function clearZone(index)
@@ -562,6 +568,15 @@ RegisterNetEvent("nts_mobs:server:playerDamage", function(target, net_mob, damag
         SetEntityHealth(user_ped, GetEntityHealth(user_ped) - damage)
     end
 end)
+
+--[[RegisterServerEvent("nts_mobs:server:mob_go_to_coords", function(net_mob, coords, speed)
+    if not coords then return end
+
+    local mob = NetworkGetEntityFromNetworkId(net_mob)
+    if not mob or not DoesEntityExist(mob) then return end
+
+    TaskGoToCoordAnyMeans(mob, dest.x, dest.y, dest.z, speed, 0, false, 786603, 0.0)
+end)]]
 
 AddEventHandler('onResourceStop', function(resourceName)
     if (GetCurrentResourceName() ~= resourceName) then

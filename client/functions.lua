@@ -1,5 +1,8 @@
 local zoneTrianglesCache = {}
 local should_render_debug_lines = not Config.Debug
+local glm = require 'glm'
+local glm_distance2 = glm.distance2
+local SAFE_NAV_FLAGS <const> = 2 + 4 + 8 + 16 -- not isolated, not interior, not water, network spawn
 
 local function getZoneTriangles(index, points)
     if not zoneTrianglesCache[index] then
@@ -23,14 +26,14 @@ end
 function GetRandomPoints(index, points, count)
     local triangles, borderDistance, polygonPoints = getZoneTriangles(index, points)
     local generatedPoints = {}
-    local maxBorderAttempts = 20
-    local maxMaterialAttempts = 10
+    local maxBorderAttempts = 25
+    local maxMaterialAttempts = 12
     local zoneConfig = Config.Mob.Zone[index]
     local hasWhitelist = zoneConfig.whitelistedSoilTypes and next(zoneConfig.whitelistedSoilTypes)
 
     local pointsNeeded = count
     local totalAttempts = 0
-    local maxTotalAttempts = count * (maxBorderAttempts + maxMaterialAttempts)
+    local maxTotalAttempts = count * (maxBorderAttempts + maxMaterialAttempts + 10)
 
     while #generatedPoints < pointsNeeded and totalAttempts < maxTotalAttempts do
         totalAttempts = totalAttempts + 1
@@ -52,13 +55,27 @@ function GetRandomPoints(index, points, count)
             goto continue
         end
 
-        local retval, groundZ = GetGroundZFor_3dCoord(point.x, point.y, point.z + 100.0, true)
+        --[[local retval, groundZ = GetGroundZFor_3dCoord(point.x, point.y, point.z + 100.0, true)
         if not retval then 
             Debug("Warning: GetGroundZFor_3dCoord failed at " .. point.x .. ", " .. point.y)
             goto continue
         end
 
-        point = vec3(point.x, point.y, groundZ + 1.0)
+        point = vec3(point.x, point.y, groundZ + 1.0)]]
+
+        local foundSafe, safePos = GetSafeCoordForPed(point.x, point.y, point.z, false, vec3(0.0, 0.0, 0.0), SAFE_NAV_FLAGS)
+        if not foundSafe or not safePos then
+            Debug("Warning: Navmesh safe coord not found at " .. point.x .. ", " .. point.y)
+            goto continue
+        end
+
+        point = vec3(safePos.x, safePos.y, safePos.z + 1.0)
+
+        local isWater, waterZ = GetWaterHeightNoWaves(point.x, point.y, point.z)
+        if isWater and math.abs((waterZ or 0) - point.z) < 1.5 then
+            Debug("Warning: Point over water at " .. point.x .. ", " .. point.y)
+            goto continue
+        end
 
         if hasWhitelist then
             local startZ = point.z + 5.0
@@ -141,16 +158,17 @@ function getClosestPlayerToMob(mob, coords)
 
     for player, ped in pairs(GetPlayers(false, true, true)) do
         if not IsPedDeadOrDying(ped, true) then
-            local distance = #(pos - GetEntityCoords(ped))
+            local pedPos = GetEntityCoords(ped)
+            local distanceSq = glm_distance2(pos, pedPos)
 
-            if closestDistance == -1 or closestDistance > distance then
+            if closestDistance == -1 or closestDistance > distanceSq then
                 closestPlayer = player
-                closestDistance = distance
+                closestDistance = distanceSq
             end
         end
     end
 
-    return closestPlayer, closestDistance
+    return closestPlayer, closestDistance >= 0 and math.sqrt(closestDistance) or closestDistance
 end
 
 function RotationToDirection(rotation)

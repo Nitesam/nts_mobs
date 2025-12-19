@@ -13,15 +13,17 @@ local MOTION_STATE_RUNNING = -530524
 -- SISTEMA CENTRALIZZATO DI CONTROLLO MOB
 -- ============================================
 
-CONTROLLED_MOBS = {}                   -- Tabella dei mob controllati
+CONTROLLED_MOBS = {}                       -- Tabella dei mob controllati
 
-local controlThreadActive = false      -- Flag stato thread
-local THREAD_TICK_RATE = 50            -- ms - frequenza base del thread
-local closestControlledMobNetId = nil  -- NetId del mob controllato più vicino (per debug)
+local controlThreadActive = false          -- Flag stato thread
+local THREAD_TICK_RATE = 50                -- ms - frequenza base del thread
+local closestControlledMobNetId = nil      -- NetId del mob controllato più vicino (per debug)
 
-local STUCK_CHECK_INTERVAL = 500       -- ms - intervallo tra i controlli di movimento
-local STUCK_DISTANCE_THRESHOLD = 0.75  -- unità - distanza minima considerata come movimento
-local REQUIRED_STUCK_CHECKS = 2        -- numero di controlli consecutivi prima di considerare il mob bloccato
+local STUCK_CHECK_INTERVAL = 250           -- ms - intervallo tra i controlli di movimento
+local STUCK_DISTANCE_THRESHOLD = 0.02      -- unità - distanza minima considerata come movimento
+local REQUIRED_STUCK_CHECKS = 1            -- numero di controlli consecutivi prima di considerare il mob bloccato
+local WANDER_TASK_GRACE_MS <const> = 2000  -- ms - evita clear immediato dopo assegnazione wander
+local SPAWN_WANDER_DELAY_MS <const> = 100  -- ms - non assegnare wander subito allo spawn
 
 local MOB_STATE <const> = {
     IDLE = 1,
@@ -29,7 +31,8 @@ local MOB_STATE <const> = {
     CHASING = 3,
     ATTACKING = 4,
     FLEEING = 5,
-    COOLDOWN = 6
+    COOLDOWN = 6,
+    RETURNING = 7
 }
 
 MOB_STATE_NAMES = {
@@ -38,7 +41,8 @@ MOB_STATE_NAMES = {
     [3] = "CHASING",
     [4] = "ATTACKING",
     [5] = "FLEEING",
-    [6] = "COOLDOWN"
+    [6] = "COOLDOWN",
+    [7] = "RETURNING"
 }
 
 local MOB_STATE_NAMES = MOB_STATE_NAMES
@@ -172,6 +176,20 @@ end
 -- ============================================
 
 local function clearMobTasks(mob, netId)
+    local mobData = CONTROLLED_MOBS[netId]
+    if mobData and mobData.state == MOB_STATE.WANDERING then
+        local now = GetGameTimer()
+        local issuedAt = mobData.lastWanderIssuedAt or 0
+        if mobData.goingToCoords and (now - issuedAt) < WANDER_TASK_GRACE_MS then
+            DebugMob(netId, "Skipped clearing tasks: wander grace window")
+            return
+        end
+    end
+
+    -- if GetIsTaskActive(mob, 222) then Entity(mob).state:set('illegal:clearingWhileWandering', true, true) end
+    mobData.usedClearPedTasks = true
+    SetTimeout(250, function() mobData.usedClearPedTasks = false end)
+
     ClearPedTasks(mob)
     DebugMob(netId, "Cleared all tasks")
 end
@@ -187,23 +205,37 @@ end
 -- void TaskGoToCoordAnyMeans(int /* Ped */ ped, float x, float y, float z, float fMoveBlendRatio, int /* Vehicle */ vehicle, bool bUseLongRangeVehiclePathing, int drivingFlags, float fMaxRangeToShootTargets);
 local MAX_SPAWN_RETRIES <const> = 20
 local function generateCoordsAndGo(mob, zone, mobData, netId, try)
+    local try = try or 0
     local points = GetRandomPoints(zone, Config.Mob.Zone[zone].pos, 1)
+    mobData.goingToCoords = nil
+    mobData.pendingWanderIssuedAt = nil
+    mobData.pendingWander = nil
+
     if #points == 0 then
-        DebugMob(netId, "No valid points generated for wandering")
         Wait(0)
-        local is_max_reached = (try or 0) > MAX_SPAWN_RETRIES
-        print("^1[MOB DEBUG #" .. netId .. "]^2 Max wandering point generation retries reached, giving up.^7")
-        return is_max_reached and nil or generateCoordsAndGo(mob, zone, mobData, netId, (try or 0) + 1)
+        local is_max_reached = try > MAX_SPAWN_RETRIES
+        --print("^1[MOB DEBUG #" .. netId .. "]^2 Max wandering point generation retries reached, giving up.^7")
+        return is_max_reached and nil or generateCoordsAndGo(mob, zone, mobData, netId, try + 1)
     end
 
     local dest = points[1]
-    TaskGoToCoordAnyMeans(mob, dest.x, dest.y, dest.z, (function()
+    local speed = (function()
         local speed = mobData.mobConfig.speed or 1.0
-        if speed < 0.3 then return 1.0 end
+        if speed < 0.3 then return 0.3 end
         if speed > 3.0 then return 3.0 end
         return speed
-    end)(), 0, false, 786603, 0.0)
-    DebugMob(netId, "Wandering to point:", string.format("(%.2f, %.2f, %.2f)", dest.x, dest.y, dest.z))
+    end)()
+
+    TaskGoToCoordAnyMeans(mob, dest.x, dest.y, dest.z, speed, 0, false, 786603, 0.0)
+
+    --TriggerServerEvent('nts_mobs:server:mob_go_to_coords', netId, dest, speed)
+
+    mobData.goingToCoords = dest
+
+    local now = GetGameTimer()
+    mobData.lastWanderIssuedAt = now
+    mobData.pendingWanderIssuedAt = now
+    mobData.pendingWander = true
 end
 
 --- Configures mob behavior attributes (audio, combat, flee)
@@ -269,7 +301,9 @@ local function isMobStuck(mob, mobData, netId, mobCoords)
     mobData.lastMovementCoords = currentPos
     mobData.lastMovementCheckTime = currentTime
 
-    if mobData.state == MOB_STATE.WANDERING and distance <= STUCK_DISTANCE_THRESHOLD then
+    local shouldCheckStuck = (mobData.state == MOB_STATE.WANDERING) or (mobData.state == MOB_STATE.RETURNING)
+
+    if shouldCheckStuck and distance <= STUCK_DISTANCE_THRESHOLD then
         mobData.stuckAttempts = (mobData.stuckAttempts or 0) + 1
         DebugMob(netId, "Mob appears stuck (check #" .. mobData.stuckAttempts .. ")", string.format("%.2f", distance), "units in", STUCK_CHECK_INTERVAL .. "ms")
         if mobData.stuckAttempts >= REQUIRED_STUCK_CHECKS then
@@ -284,14 +318,17 @@ local function isMobStuck(mob, mobData, netId, mobCoords)
 end
 
 local function recoverStuckMob(mob, zone, mobData, netId)
-    clearMobTasks(mob, netId)
+    --clearMobTasks(mob, netId)
     mobData.lastMovementCoords = nil
     mobData.lastMovementCheckTime = 0
     mobData.stuckAttempts = 0
     mobData.stuckRecoveryCount = (mobData.stuckRecoveryCount or 0) + 1
 
+    --generateCoordsAndGo(mob, zone, mobData, netId)
+
     if mobData.stuckRecoveryCount % 3 == 0 then
-        TaskWanderStandard(mob, 10.0, 10)
+        mobData.stuckRecoveryCount = 0
+        TaskWanderInArea(mob, mobData.currentCoords.x, mobData.currentCoords.y, mobData.currentCoords.z, 10.0, 8, 0)
         DebugMob(netId, "Fallback wander task issued to recover stuck mob")
     else
         generateCoordsAndGo(mob, zone, mobData, netId)
@@ -517,7 +554,7 @@ local function handleEscapeFromPlayer(mob, nearPlayer, mobConfig, mobData, netId
         local distance_to_flee = mobConfig.escapeDistanceMax?.min and mobConfig.escapeDistanceMax?.max and
             math.random(mobConfig.escapeDistanceMax.min, mobConfig.escapeDistanceMax.max) or 100.0
 
-        TaskSmartFleePed(mob, nearPlayerPed, distance_to_flee + 0.0, 15000, false, false)
+        TaskSmartFleePed(mob, nearPlayerPed, distance_to_flee + 0.0, 3000, false, false)
         DebugMob(netId, "Fleeing from player! (15s duration)")
     end
 
@@ -561,9 +598,34 @@ local function handleIdleBehavior(mob, zone, mobData, netId)
         DebugMob(netId, "Transitioning to IDLE, clearing previous tasks")
     end
 
+    local now = GetGameTimer()
+
+    if (now - (mobData.spawnedAt or 0)) < SPAWN_WANDER_DELAY_MS then
+        return
+    end
+
+    if mobData.pendingWander then
+        if GetIsTaskActive(mob, TASK_GO_TO_COORD_ANY_MEANS) or GetIsTaskActive(mob, TASK_WANDER) then
+            mobData.pendingWander = nil
+            mobData.pendingWanderIssuedAt = nil
+            SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
+            return
+        end
+
+        if (now - (mobData.pendingWanderIssuedAt or 0)) > WANDER_TASK_GRACE_MS then
+            DebugMob(netId, "Wander task not started, retrying")
+            mobData.pendingWander = nil
+            mobData.pendingWanderIssuedAt = nil
+            mobData.goingToCoords = nil
+            generateCoordsAndGo(mob, zone, mobData, netId)
+            return
+        end
+
+        return -- still within grace window waiting for task to start
+    end
+
     if isMobIdle(mob) then
         generateCoordsAndGo(mob, zone, mobData, netId)
-        SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
         return
     end
 
@@ -571,10 +633,17 @@ local function handleIdleBehavior(mob, zone, mobData, netId)
 end
 
 local function returnToZone(mob, zone, mobData, netId)
-    clearMobTasks(mob, netId)
+    if mobData.state ~= MOB_STATE.RETURNING then
+        clearMobTasks(mob, netId)
+    end
+    
+    mobData.lastMovementCoords = nil
+    mobData.lastMovementCheckTime = 0
+    mobData.stuckAttempts = 0
+    
     generateCoordsAndGo(mob, zone, mobData, netId)
     DebugMob(netId, "Returning to zone:", zone)
-    SwitchToMobState(mobData, MOB_STATE.WANDERING, netId)
+    SwitchToMobState(mobData, MOB_STATE.RETURNING, netId)
     Debug("^1[MOB DEBUG #" .. netId .. "]^2 Returning to zone " .. zone .. "^7")
 end
 
@@ -605,7 +674,11 @@ local function processSingleMob(netId, mobData, currentTime)
         return
     end
 
-    processMeleeAttack(mob, mobData, netId)         -- the script is gonna process the mellee attack only if queued (see later)
+    if IsPedDeadOrDying(mob, true) then
+        return
+    end
+
+    processMeleeAttack(mob, mobData, netId)
 
     if mobData.pendingAttack then
         DebugMob(netId, "Waiting for pending attack to complete...")
@@ -627,61 +700,84 @@ local function processSingleMob(netId, mobData, currentTime)
     mobData.lastProcessTime = currentTime
     mobData.currentCoords = GetEntityCoords(mob)
 
-    if (mobData.state == MOB_STATE.WANDERING or mobData.state == MOB_STATE.IDLE) and not zoneMob[mobData.zone].poly:contains(mobData.currentCoords) then
-        returnToZone(mob, mobData.zone, mobData, netId)
-        return
-    end
-
     local nearPlayer, nearPlayerDistance = getClosestPlayerToMob(mob, mobData.currentCoords)
-    --ensureMovementClipset(mob, mobData.mobConfig, netId)
-
     local nearPlayerPed = GetPlayerPed(nearPlayer)
-    local isNearPlayerDead = IsPedDeadOrDying(nearPlayerPed, true)
 
     if mobData.mobConfig.hasTrollMode and nearPlayerDistance <= (mobData.mobConfig.visualRange * 2) and IsEntityPlayingAnim(nearPlayerPed, 'custom@take_l', 'take_l', 3) then
         TaskTurnPedToFaceEntity(mob, nearPlayerPed, 500)
         SetTimeout(500, function() ShootLaser(mob, nearPlayerPed, mobData, netId) end)
         mobData.tickDelay = 2000
+        return
     end
 
-    if nearPlayerDistance <= mobData.mobConfig.visualRange and not isNearPlayerDead then
+    if mobData.state == MOB_STATE.RETURNING and nearPlayerDistance <= mobData.mobConfig.visualRange then
+        DebugMob(netId, "Player detected while returning, distance:", string.format("%.2f", nearPlayerDistance))
+        
+        if mobData.mobConfig.behaviour == "aggressive" then
+            handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobData.mobConfig, netId, mobData)
+            mobData.tickDelay = 150
+            return
+        elseif mobData.mobConfig.behaviour == "fugitive" then
+            handleEscapeFromPlayer(mob, nearPlayer, mobData.mobConfig, mobData, netId)
+            mobData.tickDelay = 150
+            return
+        end
+    end
+
+    local isMobOutOfZone = not zoneMob[mobData.zone].poly:contains(mobData.currentCoords)
+    
+    if (mobData.state == MOB_STATE.WANDERING or mobData.state == MOB_STATE.IDLE) and isMobOutOfZone then
+        returnToZone(mob, mobData.zone, mobData, netId)
+        mobData.tickDelay = 500
+        return
+    elseif isMobOutOfZone and mobData.state == MOB_STATE.RETURNING then
+        local isMoving = GetIsTaskActive(mob, TASK_GO_TO_COORD_ANY_MEANS) or GetIsTaskActive(mob, TASK_WANDER)
+        
+        if not isMoving then
+            DebugMob(netId, "Return task not active, reissuing immediately")
+            generateCoordsAndGo(mob, mobData.zone, mobData, netId)
+            mobData.tickDelay = 100
+            return
+        end
+        
+        if isMobStuck(mob, mobData, netId, mobData.currentCoords) then
+            DebugMob(netId, "Returning mob is stuck, trying to recover")
+            recoverStuckMob(mob, mobData.zone, mobData, netId)
+            mobData.tickDelay = 100
+            return
+        end
+
+        mobData.tickDelay = 250
+        return 
+    elseif not isMobOutOfZone and mobData.state == MOB_STATE.RETURNING then
+        DebugMob(netId, "Mob finished returning, resuming idle/wander")
+        clearMobTasks(mob, netId)
+        SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
+        mobData.tickDelay = 100
+    end
+
+    if nearPlayerDistance <= mobData.mobConfig.visualRange then
         DebugMob(netId, "Player in visual range:", string.format("%.2f", nearPlayerDistance), "/", mobData.mobConfig.visualRange)
 
         if mobData.mobConfig.behaviour == "aggressive" then
             handleChasePlayer(mob, nearPlayer, nearPlayerDistance, mobData.mobConfig, netId, mobData)
-        else -- if mobData.mobConfig.behaviour == "fugitive" then                                       -- if is not aggressive, is fugitive for now
+        else
             handleEscapeFromPlayer(mob, nearPlayer, mobData.mobConfig, mobData, netId)
         end
         mobData.tickDelay = 150
-    elseif isNearPlayerDead then
-        if mobData.state == MOB_STATE.CHASING or mobData.state == MOB_STATE.ATTACKING or mobData.state == MOB_STATE.COOLDOWN then
-            --DebugMob(netId, "Nearest player is dead, returning to idle")
-            mobData.currentTarget = nil
-            clearCriticalState(mob, netId)
-            clearMobTasks(mob, netId)
-            SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
-        end
-
-        if mobData.state == MOB_STATE.WANDERING then
-            handleWanderingBehavior(mob, mobData.zone, mobData, netId)
-        else
-            handleIdleBehavior(mob, mobData.zone, mobData, netId)
-        end
-        mobData.tickDelay = 1000
     else
         if mobData.state == MOB_STATE.FLEEING and GetIsTaskActive(mob, TASK_SMART_FLEE) then
-            if isMobStuck(mob, mobData, netId, mobData.currentCoords) then
+            --[[if isMobStuck(mob, mobData, netId, mobData.currentCoords) then
                 DebugMob(netId, "Fleeing mob is stuck, stopping flee and returning to idle")
                 clearMobTasks(mob, netId)
                 SwitchToMobState(mobData, MOB_STATE.IDLE, netId)
-            else
+            else]]
                 if not mobData.lastFleeDebugTime or (currentTime - mobData.lastFleeDebugTime) > 5000 then
-                    --DebugMob(netId, "Still fleeing (TASK_SMART_FLEE active)")
                     mobData.lastFleeDebugTime = currentTime
                 end
-                mobData.tickDelay = 500
+                mobData.tickDelay = 100
                 return
-            end
+            --end
         end
 
         if mobData.state == MOB_STATE.WANDERING then
@@ -689,7 +785,7 @@ local function processSingleMob(netId, mobData, currentTime)
         else
             handleIdleBehavior(mob, mobData.zone, mobData, netId)
         end
-        mobData.tickDelay = 1000
+        mobData.tickDelay = 100
     end
 end
 
@@ -763,7 +859,7 @@ local function addControlledMob(zone, netId, mobType)
 
     local savedTargetServerId, savedState = readCriticalState(mob)
     local restoredTarget = nil
-    local initialState = MOB_STATE.IDLE
+    local initialState = isMobWandering(mob) and MOB_STATE.WANDERING or MOB_STATE.IDLE
 
     if savedTargetServerId and savedState and CRITICAL_STATES[savedState] then
         restoredTarget = getPlayerFromServerId(savedTargetServerId)
@@ -795,7 +891,8 @@ local function addControlledMob(zone, netId, mobType)
         lastMovementCheckTime = 0,
         stuckAttempts = 0,
         stuckRecoveryCount = 0,
-        lastFleeDebugTime = 0
+        lastFleeDebugTime = 0,
+        spawnedAt = GetGameTimer()
     }
 
     Debug("Added mob to control: " .. netId .. " | Total: " .. getControlledMobCount())
@@ -810,7 +907,7 @@ end
 -- ============================================
 
 RegisterNetEvent("nts_mobs:client:internal_add_mob", function(zone, netId, mobType)
-    exports.nts_mobs:ESP_AddEntity(NetworkGetEntityFromNetworkId(netId), mobType, "enemy")
+    if Config.Debug then exports.nts_mobs:ESP_AddEntity(NetworkGetEntityFromNetworkId(netId), mobType, "enemy") end
     addControlledMob(zone, netId, mobType)
 end)
 

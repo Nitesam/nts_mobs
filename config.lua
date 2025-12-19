@@ -7,7 +7,7 @@ Config = {}
 ---============================================================================
 --- GENERAL SETTINGS
 ---============================================================================
-Config.Debug = true                                     -- Enable debug mode (disable in production)
+Config.Debug = false                                    -- Enable debug mode (disable in production)
 Config.ZoneEmptyTimeout = 60                            -- Seconds to reset zone if empty (per-zone override available)
 Config.ZoneEntryCooldown = 5                            -- Prevent in/out abuse (cooldown in seconds)
 
@@ -112,10 +112,16 @@ Config.Mob = {
             --- Loot Table
             max_loot = 2,                                -- Maximum different loot items to drop,
             loot = {
-                ["elk_fur"] = {
+                ["carnecruda_sylrak"] = {
                     min = 1,                            -- Minimum quantity
                     max = 3,                            -- Maximum quantity
-                    weight = 5                          -- Drop probability (0-100)
+                    weight = 100                        -- Drop probability (0-100)
+                },
+
+                ["pelle_animale"] = {
+                    min = 2,                            -- Minimum quantity
+                    max = 3,                            -- Maximum quantity
+                    weight = 100                        -- Drop probability (0-100)
                 }
             },
 
@@ -154,11 +160,18 @@ Config.Mob = {
             --- Loot Table
             max_loot = 2,                                -- Maximum different loot items to drop,
             loot = {
-                ["holonastro_piano"] = {
+                ["carnecruda_pyril"] = {
                     min = 1,                            -- Minimum quantity
                     max = 3,                            -- Maximum quantity
-                    weight = 5                          -- Drop probability (0-100)
+                    weight = 100                        -- Drop probability (0-100)
+                },
+
+                ["pelle_animale"] = {
+                    min = 1,                            -- Minimum quantity
+                    max = 2,                            -- Maximum quantity
+                    weight = 100                        -- Drop probability (0-100)
                 }
+
             },
 
             hasTrollMode = true,                        -- Shoots RPG if player raises hands
@@ -196,10 +209,16 @@ Config.Mob = {
             --- Loot Table
             max_loot = 2,                                -- Maximum different loot items to drop,
             loot = {
-                ["elk_fur"] = {
+                ["carnecruda_thoryn"] = {
                     min = 1,                            -- Minimum quantity
                     max = 3,                            -- Maximum quantity
-                    weight = 5                          -- Drop probability (0-100)
+                    weight = 100                        -- Drop probability (0-100)
+                },
+
+                ["pelle_animale"] = {
+                    min = 2,                            -- Minimum quantity
+                    max = 3,                            -- Maximum quantity
+                    weight = 100                        -- Drop probability (0-100)
                 }
             },
 
@@ -393,14 +412,20 @@ Config.Mob = {
             --- Loot Table
             max_loot = 2,                                -- Maximum different loot items to drop,
             loot = {
-                ["cow_meat"] = {
+                ["carnecruda_vharok"] = {
+                    min = 1,                            -- Minimum quantity
+                    max = 3,                            -- Maximum quantity
+                    weight = 100                        -- Drop probability (0-100)
+                },
+
+                ["pelle_animale"] = {
                     min = 2,                            -- Minimum quantity
-                    max = 5,                            -- Maximum quantity
-                    weight = 20                         -- Drop probability
+                    max = 4,                            -- Maximum quantity
+                    weight = 100                        -- Drop probability (0-100)
                 }
             },
 
-            hasTrollMode = false,                       -- Shoots RPG if player raises hands
+            hasTrollMode = true,                       -- Shoots RPG if player raises hands
 
             --- Death & Cleanup
             tryBeforeRemoving = 200                      -- Attempts before corpse removal (≈30 sec per try)
@@ -535,7 +560,7 @@ Config.Mob = {
         },        
         ["mountain_lion"] = {
             --- Model & Base Stats
-            ped = "a_c_mtlion",                         -- GTA model hash/name
+            ped = "velxor_goat",                         -- GTA model hash/name
             speed = 1.7,                                -- Movement speed multiplier
 
             behaviour = "aggressive",                   -- Behaviour type (passive/aggressive/fugitive/neutral)
@@ -576,7 +601,7 @@ Config.Mob = {
 
         ["mountain_lion1"] = {
             --- Model & Base Stats
-            ped = "a_c_mtlion_02",                         -- GTA model hash/name
+            ped = "velxor_goat",                         -- GTA model hash/name
             speed = 1.7,                                -- Movement speed multiplier
 
             behaviour = "aggressive",                   -- Behaviour type (passive/aggressive/fugitive/neutral)
@@ -622,7 +647,7 @@ Config.Mob = {
         ["zone_a_green"] = {
             --- Display & Identification
             name = "zone_a_green",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -665,7 +690,7 @@ Config.Mob = {
         ["zone_b_green"] = {
             --- Display & Identification
             name = "zone_b_green",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -714,7 +739,7 @@ Config.Mob = {
         ["zone_a_orange"] = {
             --- Display & Identification
             name = "zone_a_orange",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -758,7 +783,7 @@ Config.Mob = {
         ["zone_b_orange"] = {
             --- Display & Identification
             name = "zone_b_orange",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -802,7 +827,7 @@ Config.Mob = {
         ["zone_c_orange"] = {
             --- Display & Identification
             name = "zone_c_orange",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -846,7 +871,7 @@ Config.Mob = {
         ["zone_d_orange"] = {
             --- Display & Identification
             name = "zone_d_orange",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -889,7 +914,7 @@ Config.Mob = {
         ["zone_e_orange"] = {
             --- Display & Identification
             name = "zone_e_orange",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -935,7 +960,7 @@ Config.Mob = {
         ["zone_a_red"] = {
             --- Display & Identification
             name = "zone_e_orange",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -978,7 +1003,7 @@ Config.Mob = {
         ["zone_b_red"] = {
             --- Display & Identification
             name = "zone_b_red",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -1022,7 +1047,7 @@ Config.Mob = {
         ["zone_c_red"] = {
             --- Display & Identification
             name = "zone_c_red",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -1065,7 +1090,7 @@ Config.Mob = {
         ["zone_d_red"] = {
             --- Display & Identification
             name = "zone_d_red",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -1108,7 +1133,7 @@ Config.Mob = {
         ["zone_e_red"] = {
             --- Display & Identification
             name = "zone_e_red",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -1151,7 +1176,7 @@ Config.Mob = {
         ["zone_f_red"] = {
             --- Display & Identification
             name = "zone_f_red",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {
@@ -1194,7 +1219,7 @@ Config.Mob = {
         ["zone_g_red"] = {
             --- Display & Identification
             name = "zone_g_red",                             -- Zone display name
-            debug = true,                               -- Debug mode for this zone
+            debug = false,                               -- Debug mode for this zone
 
             --- Zone Boundaries (Polygon Points)
             pos = {

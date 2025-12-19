@@ -1,27 +1,29 @@
 local eTaskTypeIndex <const> = ETaskTypeIndex
 
 local random = math.random
+local glm = require 'glm'
+local glm_distance2 = glm.distance2
+local glm_dot = glm.dot
+local glm_cross = glm.cross
+local glm_length = glm.length
 
 function isPointNearPolygonBorder(x, y, polygon, distance)
     local distanceSq = distance * distance
     local n = #polygon
+    local point2 = vec2(x, y)
 
     for i = 1, n do
         local j = i == n and 1 or i + 1
         local p1, p2 = polygon[i], polygon[j]
-        local xi, yi = p1.x, p1.y
-        local xj, yj = p2.x, p2.y
-
-        local dx, dy = xj - xi, yj - yi
-        local lenSq = dx * dx + dy * dy
-
-        local t = ((x - xi) * dx + (y - yi) * dy) / lenSq
-
+        local a = vec2(p1.x, p1.y)
+        local b = vec2(p2.x, p2.y)
+        local ab = b - a
+        local lenSq = glm_distance2(a, b)
+        local t = lenSq > 0 and glm_dot(point2 - a, ab) / lenSq or 0
         if t < 0 then t = 0 elseif t > 1 then t = 1 end
 
-        local nearestX = xi + t * dx
-        local nearestY = yi + t * dy
-        local distSq = (x - nearestX) * (x - nearestX) + (y - nearestY) * (y - nearestY)
+        local nearest = a + ab * t
+        local distSq = glm_distance2(point2, nearest)
 
         if distSq <= distanceSq then return true end
     end
@@ -29,21 +31,16 @@ function isPointNearPolygonBorder(x, y, polygon, distance)
 end
 
 function getCentroid(points)
-    local sumX, sumY, sumZ = 0, 0, 0
     local n = #points
-
+    local acc = vec3(0, 0, 0)
     for i = 1, n do
-        local p = points[i]
-        sumX = sumX + p.x
-        sumY = sumY + p.y
-        sumZ = sumZ + p.z
+        acc = acc + points[i]
     end
-
-    return vec3(sumX / n, sumY / n, sumZ / n)
+    return acc / n
 end
 
 local function triangleArea(p1, p2, p3)
-    return 0.5 * math.abs((p2.x - p1.x) * (p3.y - p1.y) - (p3.x - p1.x) * (p2.y - p1.y))
+    return 0.5 * glm_length(glm_cross(p2 - p1, p3 - p1))
 end
 
 local function randomPointInTriangle(p1, p2, p3)
@@ -125,6 +122,8 @@ end
 Debug = function (...) if Config.Debug then print(...) end end
 
 if not IsDuplicityVersion() then
+    exports("DebugPedTask", DebugPedTask)
+
     if Config.Debug then
         function Target(distance)
         while true do

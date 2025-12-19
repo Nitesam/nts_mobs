@@ -75,6 +75,7 @@ local function init_thread_helper(zone)
 
                 local ped_owner = NetworkGetEntityOwner(ped)
                 if ped_owner ~= self_net_id then goto continue end
+                NetworkRequestControlOfEntity(ped)
 
                 local pedCoords = GetEntityCoords(ped)
                 local distSq = (self_coords.x - pedCoords.x)^2 + (self_coords.y - pedCoords.y)^2 + (self_coords.z - pedCoords.z)^2
@@ -83,14 +84,14 @@ local function init_thread_helper(zone)
                 local mobType = Entity(ped).state.mobType
                 if mobType then
                     TriggerEvent("nts_mobs:client:internal_add_mob", zone, netId, mobType)
-                    knownMobs[netId] = true
+                    knownMobs[netId] = nil
                 else
                     knownMobs[netId] = currentTime
                 end
 
                 ::continue::
             end
-            if tickCounter >= 20 then
+            if tickCounter >= 40 then
                 tickCounter = 0
                 for netId, data in pairs(knownMobs) do
                     if not NetworkDoesEntityExistWithNetworkId(netId) then
@@ -99,7 +100,7 @@ local function init_thread_helper(zone)
                 end
             end
 
-            Citizen.Wait(250)
+            Citizen.Wait(100)
         end
 
         knownMobs = {}
@@ -115,7 +116,7 @@ local function initialize()
         for k, v in pairs(Config.Mob.Zone) do
             Debug("Initializing zone " .. k .. "...")
 
-            local minHeight = findThicknessBasedOnArea(v.pos, v.forcedMinHeight)
+            local minHeight = findThicknessBasedOnArea(v.pos, v.forcedMinHeight) * 2
             --for i = 1, #v.pos do v.pos[i] = vec3(v.pos[i].x, v.pos[i].y, v.pos[i].z + (minHeight/2)) end
 
             local models_of_zone = (function()
@@ -175,7 +176,7 @@ if Config.Debug then
     end, false)
 
     RegisterCommand("checkZoneMob", function (source, args, raw)
-        for k, v in pairs(ZONE_TAB) do
+        for k, v in pairs(zoneMob) do
             print(k, v.active)
         end
     end, false)

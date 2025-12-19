@@ -97,6 +97,17 @@ local function DrawESPBox(entity, color, label, mobData)
         local textScale = math.max(0.25, 0.4 * scale)
         
         if mobData then
+            if mobData.usedClearPedTasks then
+                SetTextScale(textScale * 0.6, textScale * 0.6)
+                SetTextFont(4)
+                SetTextColour(255, 0, 255, 255)
+                SetTextOutline()
+                SetTextCentre(true)
+                BeginTextCommandDisplayText("STRING")
+                AddTextComponentSubstringPlayerName("CLEARING TASKS")
+                EndTextCommandDisplayText(screenX, screenY - 0.08)
+            end
+
             if mobData.stuckAttempts > 0 then
                 SetTextScale(textScale * 0.6, textScale * 0.6)
                 SetTextFont(4)
